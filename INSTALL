@@ -1,0 +1,7 @@
+BEWARE - PRELIMINARY VERSION
+----------------------------
+
+For WEE Library and tests:
+  * gem install weel
+  * No dependencies required
+  * rake test
