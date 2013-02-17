@@ -7,6 +7,29 @@ class String # {{{
   end
 end # }}}
 
+# OMG!111! deep cloning for ReadHashes
+class Object #{{{
+  def deep_clone
+    return @deep_cloning_obj if @deep_cloning
+    @deep_cloning_obj = clone
+    @deep_cloning_obj.instance_variables.each do |var|
+      val = @deep_cloning_obj.instance_variable_get(var)
+      begin
+        @deep_cloning = true
+        val = val.deep_clone
+      rescue TypeError
+        next
+      ensure
+        @deep_cloning = false
+      end
+      @deep_cloning_obj.instance_variable_set(var, val)
+    end
+    deep_cloning_obj = @deep_cloning_obj
+    @deep_cloning_obj = nil
+    deep_cloning_obj
+  end
+end #}}}
+
 class WEEL
   def initialize(*args)# {{{
     @wfsource = nil
@@ -118,7 +141,7 @@ class WEEL
       temp = nil
       if args.empty? && @__weel_values.has_key?(name)
         @__weel_values[name] 
-        #TODO dont let user change stuff
+        #TODO dont let user change stuff e.g. if return value is an array (deep clone and/or deep freeze it?)
       else
         nil
       end
@@ -149,6 +172,12 @@ class WEEL
     
     def vote_sync_before; true; end
     def vote_sync_after; true; end
+
+    # type       => activity, loop, parallel, choice
+    # nesting    => none, start, end
+    # eid        => id's also for control structures
+    # parameters => stuff given to the control structure
+    def simulate(type,nesting,eid,parameters={}); end
 
     def callback(result); end
   end  # }}}
@@ -230,6 +259,7 @@ class WEEL
       @__weel_handlerwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
+      @__weel_sim = -1
     end
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args
     attr_reader :__weel_state, :__weel_status
@@ -246,11 +276,15 @@ class WEEL
       begin
         searchmode = __weel_is_in_search_mode(position)
         return if searchmode == true
-        return if __weel_sim == true
         return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, @__weel_endpoints[endpoint], position, Thread.current[:continue]
+
+        if __weel_sim == true
+          handlerwrapper.simulate(:activity,:none,position,:parameters=>parameters,:parent => Thread.current[:branch_sim_pos])
+          return
+        end
 
         ipc = {}
         if searchmode == :after
@@ -382,7 +416,15 @@ class WEEL
       Thread.current[:branches] = []
       Thread.current[:branch_finished_count] = 0
       Thread.current[:branch_event] = Continue.new
+      Thread.current[:branch_sim_pos] = @__weel_sim += 1
       Thread.current[:mutex] = Mutex.new
+
+      handlerwrapper = nil
+      if __weel_sim == true
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+        handlerwrapper.simulate(:parallel,:start,Thread.current[:branch_sim_pos])
+      end
+
       yield
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer)) ? type[:wait] : Thread.current[:branches].size)
@@ -400,6 +442,10 @@ class WEEL
 
       Thread.current[:branch_event].wait
       #Thread.current[:branch_event] = nil
+
+      if __weel_sim == true
+        handlerwrapper.simulate(:parallel,:end,Thread.current[:branch_sim_pos])
+      end
 
       unless self.__weel_state == :stopping || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
@@ -425,13 +471,29 @@ class WEEL
           Thread.current.abort_on_exception = true
           Thread.current[:branch_status] = false
           Thread.current[:branch_parent] = branch_parent
+
+          # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
+          # after branching, update it in the parent (TODO)
           if branch_parent[:alternative_executed] && branch_parent[:alternative_executed].length > 0
             Thread.current[:alternative_executed] = [branch_parent[:alternative_executed].last]
           end
         end  
 
         Thread.stop
+
+        handlerwrapper = nil
+        sim_pos = @__weel_sim += 1
+        if __weel_sim == true
+          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+          handlerwrapper.simulate(:parallel,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
+        end
+
         yield(*local)
+
+        if __weel_sim == true
+          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+          handlerwrapper.simulate(:parallel,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
+        end
 
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_status] = true
@@ -473,12 +535,30 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+      handlerwrapper = nil
+      sim_pos = @__weel_sim += 1
+      if __weel_sim == true
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+        handlerwrapper.simulate(:alternative,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
+      end
       yield if __weel_is_in_search_mode || __weel_sim || condition
+      if __weel_sim == true
+        handlerwrapper.simulate(:alternative,:end,sim_pos,:parent => Thread.current[:branch_sim_pos])
+      end
       Thread.current[:alternative_executed][-1] = true if condition
     end # }}}
     def otherwise # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+      handlerwrapper = nil
+      sim_pos = @__weel_sim += 1
+      if __weel_sim == true
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+        handlerwrapper.simulate(:otherwise,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
+      end
       yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
+      if __weel_sim == true
+        handlerwrapper.simulate(:otherwise,:end,sim_pos,:parent => Thread.current[:branch_sim_pos])
+      end
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -496,14 +576,22 @@ class WEEL
     end # }}}
 
     # Defines a Cycle (loop/iteration)
-    def loop(condition)# {{{
+    def loop(condition)# {{{ 
       unless condition.is_a?(Array) && condition[0].is_a?(Proc) && [:pre_test,:post_test].include?(condition[1])
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      if __weel_is_in_search_mode || __weel_sim
+      if __weel_is_in_search_mode
         yield
-        return if __weel_is_in_search_mode || __weel_sim
+        return if __weel_is_in_search_mode
+      end  
+      if __weel_sim
+        sim_pos = @__weel_sim += 1
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+        handlerwrapper.simulate(:loop,:start,sim_pos,:testing=>condition[1],:parent => Thread.current[:branch_sim_pos])
+        yield
+        handlerwrapper.simulate(:loop,:end,sim_pos,:testing=>condition[1],:parent => Thread.current[:branch_sim_pos])
+        return
       end  
       case condition[1]
         when :pre_test
@@ -597,7 +685,7 @@ class WEEL
     end # }}}
 
     def __weel_sim
-      @__weel_state == :simulation
+      @__weel_state == :simulating
     end
   
   public
@@ -621,7 +709,7 @@ class WEEL
       handlerwrapper.inform_state_change @__weel_state
     end # }}}
 
-  end # }}}
+  end # }}} 
 
 public
   def positions # {{{
@@ -653,7 +741,7 @@ public
     nil
   end #  }}}
 
-  # Get the state of execution (ready|running|stopping|stopped|finished)
+  # Get the state of execution (ready|running|stopping|stopped|finished|simulating)
   def state # {{{
     @dslr.__weel_state
   end #  }}}
@@ -705,7 +793,7 @@ public
     else
       @wfsource = code unless bgiven
       (class << self; self; end).class_eval do
-        define_method :__weel_control_flow do |state|
+        define_method :__weel_control_flow do |state,final_state=:finished|
           @dslr.__weel_positions.clear
           @dslr.__weel_state = state
           begin
@@ -726,7 +814,10 @@ public
             @dslr.__weel_positions.clear
             handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
             handlerwrapper.inform_position_change(ipc)
-          end 
+          end
+          if @dslr.__weel_state == :simulating
+            @dslr.__weel_state = final_state
+          end  
           if @dslr.__weel_state == :stopping
             @dslr.__weel_finalize
           end
@@ -752,9 +843,10 @@ public
   end # }}}
 
   def sim # {{{
-    return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
+    stat = @dslr.__weel_state
+    return nil if stat != :ready && stat != :stopped
     @dslr.__weel_main = Thread.new do
-      __weel_control_flow(:simulation)
+      __weel_control_flow :simulating, stat
     end
   end # }}}
 
