@@ -246,6 +246,7 @@ class WEEL
       begin
         searchmode = __weel_is_in_search_mode(position)
         return if searchmode == true
+        return if __weel_sim == true
         return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
@@ -472,12 +473,12 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      yield if __weel_is_in_search_mode || condition
+      yield if __weel_is_in_search_mode || __weel_sim || condition
       Thread.current[:alternative_executed][-1] = true if condition
     end # }}}
     def otherwise # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      yield if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
+      yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -500,9 +501,9 @@ class WEEL
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      if __weel_is_in_search_mode
+      if __weel_is_in_search_mode || __weel_sim
         yield
-        return if __weel_is_in_search_mode
+        return if __weel_is_in_search_mode || __weel_sim
       end  
       case condition[1]
         when :pre_test
@@ -594,6 +595,10 @@ class WEEL
         branch[:branch_search] = true
       end  
     end # }}}
+
+    def __weel_sim
+      @__weel_state == :simulation
+    end
   
   public
     def __weel_finalize
@@ -700,9 +705,9 @@ public
     else
       @wfsource = code unless bgiven
       (class << self; self; end).class_eval do
-        define_method :__weel_control_flow do
+        define_method :__weel_control_flow do |state|
           @dslr.__weel_positions.clear
-          @dslr.__weel_state = :running
+          @dslr.__weel_state = state
           begin
             if bgiven
               @dslr.instance_eval(&blk)
@@ -742,7 +747,14 @@ public
   def start # {{{
     return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
     @dslr.__weel_main = Thread.new do
-      __weel_control_flow
+      __weel_control_flow(:running)
+    end
+  end # }}}
+
+  def sim # {{{
+    return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
+    @dslr.__weel_main = Thread.new do
+      __weel_control_flow(:simulation)
     end
   end # }}}
 
