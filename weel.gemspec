@@ -14,7 +14,7 @@ WEE Library is freely distributable according to the terms of the GNU Lesser Gen
 This program is distributed without any warranty. See the file 'COPYING' for details.
 EOF
 
-  s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING FEATURES INSTALL Rakefile weel.gemspec README AUTHORS)
+  s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING Changelog FEATURES INSTALL Rakefile weel.gemspec README AUTHORS)
   s.require_path     = 'lib'
   s.extra_rdoc_files = ['README']
   s.test_files       = Dir['{test/*,test/*/tc_*.rb}']

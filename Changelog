@@ -1,0 +1,38 @@
+1.1.x
+-----
+Simulation support: #sim is like search mode but without search positions and
+emits events trough HandlerWrapper
+
+def simulate(type,nesting,tid,parent,parameters={})
+
+type      : activity, choose, alternative, otherwise, parallel, parallel_branch, 
+            mutex, loop
+nesting   : :none (for activity), :start or :end (for all others)
+tid       : trace id (unique element for every element)
+parent    : for all nested element the tid of its parent
+parameters: additinal information; for loops the mode (:head or :foot), for 
+            choose the mode (:inclusive or :exclusive)
+
+It is important to note, that parallel_branches are special. Parallel might
+have loops and all kinds of stuff inside, that is always executed first - it
+is logic to decide how many parallel branches are to be openend. Thus parallel
+branches might have parents that are not the parent, but can be logically 
+considered to be children of parallel for execution. The parent information
+delivered for the simulation can be taken to decide if branches are created
+in loops or decided upon in decisions (choose).
+
+Similar to parallel, there can also be stuff inside the choose, that is not
+'alternative' or 'otherwise'. Yet there the code is always executed as is. If 
+simulation is used to generated traces, this stuff has to be considered as fixed
+points (with the rest beeing variable). Special cases can again be, a variable number
+of alternatives (with their own dynamic conditions)[1]. 
+
+[1] Just in case you wonder: this can not be easily translated to a case with the
+loop outside of the choose, when considering that the otherwise is executed
+only when one of the alternatives is executed. This would require at least
+additional script tasks in the alternatives that count the number of executed
+alternatives.
+
+1.0.x
+-----
+Initial Release
