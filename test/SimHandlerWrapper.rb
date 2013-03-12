@@ -30,26 +30,11 @@ module TraceBasics #{{{
   end
 end #}}}
 
-class Trace
+class Trace #{{{
   include TraceBasics
   attr_accessor :elements
   def initialize
     @elements = []
-  end
-
-  def last_parallel
-    container = last_container
-    unless container.kind_of?(TraceParallel)
-      container = container.parent 
-    end
-    container
-  end
-  def last_parallel_branch(tid)
-    container = last_parallel
-    container.each do |ele|
-      return ele if ele.tid == tid
-    end  
-    nil
   end
 
   def get_container(tid)
@@ -66,21 +51,8 @@ class Trace
     nil
   end
 
-  def last_container
-    recursive_last_container self
-  end
-  def recursive_last_container(container)
-    return container if container.elements.empty?
-    element = container.elements.last
-    if element.kind_of?(TraceContainer) && element.open?
-      recursive_last_container element
-    else  
-      container
-    end
-  end
-
-  private :recursive_last_container
-end
+  private :recursive_get_container
+end #}}}
 
 class TraceBase #{{{
   attr_accessor :tid, :parent
@@ -111,8 +83,29 @@ class TraceElement < TraceBase #{{{
 end #}}}
 
 class TraceParallel < TraceContainer; end
-class TraceParallelBranch < TraceContainer; end
+class TraceParallelBranch < TraceContainer #{{{
+  def initialize(tid,group_by)
+    super tid
+    @group_by = group_by
+  end
+  attr_reader :group_by
+end #}}}
 class TraceLoop < TraceContainer; end
+class TraceChoose < TraceContainer
+  attr_reader :mode
+  def initialize(tid,mode)
+    super tid
+    @mode = mode
+  end  
+end
+class TraceAlternative < TraceContainer; end
+class TraceOtherwise < TraceContainer; end
+
+class PlainTrace
+  def initialize
+    @container
+  end  
+end
 
 $trace = Trace.new
 
@@ -125,39 +118,46 @@ class SimHandlerWrapper < WEEL::HandlerWrapperBase
     @__myhandler_returnValue = nil
   end
 
-  def simulate_alternative(type,nesting,tid,parent,parameters={}) #{{{
-    pp "#{type} - #{nesting} - #{tid} - #{parameters.inspect}"
+  def simulate(type,nesting,tid,parent,parameters={})
+    pp "#{type} - #{nesting} - #{tid} - #{parent} - #{parameters.inspect}"
 
     case type
       when :activity
-        $trace.last_container << TraceElement.new(tid,parameters[:endpoint])
+        $trace.get_container(parent) << TraceElement.new(tid,parameters[:endpoint])
       when :parallel
-        if nesting == :start
-          clast = $trace.last_container
-          clast << TraceParallel.new(tid)
-        else
-          clast = $trace.last_parallel
-          clast.close! if clast.open?
-        end  
+        simulate_add_to_container($trace,nesting,parent,tid) { TraceParallel.new(tid) }
       when :loop
-        pp $trace
-        clast = $trace.last_container
-        if nesting == :start
-          clast << TraceLoop.new(tid)
-        else
-          if clast && clast.tid == tid && clast.open?
-            clast.close!
-          end
-        end  
+        simulate_add_to_container($trace,nesting,parent,tid) { TraceLoop.new(tid) }
       when :parallel_branch
         if nesting == :start
-          clast = $trace.last_parallel
-          clast << TraceParallelBranch.new(tid)
+          clast = $trace.get_container(parent)
+          until clast.kind_of?(TraceParallel)
+            clast = clast.parent
+          end  
+          clast << TraceParallelBranch.new(tid,parent)
         else
-          clast = $trace.last_parallel_branch(tid)
+          clast = $trace.get_container(tid)
           clast.close! if clast.open?
         end  
+      when :choose
+        simulate_add_to_container($trace,nesting,parent,tid) { TraceChoose.new(tid,parameters[:mode]) }
+      when :alternative
+        simulate_add_to_container($trace,nesting,parent,tid) { TraceAlternative.new(tid) }
+      when :otherwise
+        simulate_add_to_container($trace,nesting,parent,tid) { TraceOtherwise.new(tid) }
     end  
-  end #}}}
+  end
+
+  private
+
+    def simulate_add_to_container(trace,nesting,parent,tid) #{{{
+      if nesting == :start
+        clast = trace.get_container(parent)
+        clast << yield
+      else
+        clast = trace.get_container(tid)
+        clast.close! if clast.open?
+      end  
+    end #}}}
 
 end

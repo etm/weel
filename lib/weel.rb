@@ -177,7 +177,7 @@ class WEEL
     # nesting    => none, start, end
     # eid        => id's also for control structures
     # parameters => stuff given to the control structure
-    def simulate(type,nesting,eid,parameters={}); end
+    def simulate(type,nesting,eid,parent,parameters={}); end
 
     def callback(result); end
   end  # }}}
@@ -281,8 +281,8 @@ class WEEL
         Thread.current[:continue] = Continue.new
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, @__weel_endpoints[endpoint], position, Thread.current[:continue]
 
-        if __weel_sim == true
-          handlerwrapper.simulate(:activity,:none,position,:parameters=>parameters,:parent => Thread.current[:branch_sim_pos])
+        if __weel_sim
+          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters, :endpoint => endpoint, :type => type)
           return
         end
 
@@ -416,14 +416,9 @@ class WEEL
       Thread.current[:branches] = []
       Thread.current[:branch_finished_count] = 0
       Thread.current[:branch_event] = Continue.new
-      Thread.current[:branch_sim_pos] = @__weel_sim += 1
       Thread.current[:mutex] = Mutex.new
 
-      handlerwrapper = nil
-      if __weel_sim == true
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-        handlerwrapper.simulate(:parallel,:start,Thread.current[:branch_sim_pos])
-      end
+      hw, pos = __weel_sim_start(:parallel) if __weel_sim
 
       yield
 
@@ -441,11 +436,8 @@ class WEEL
       end
 
       Thread.current[:branch_event].wait
-      #Thread.current[:branch_event] = nil
 
-      if __weel_sim == true
-        handlerwrapper.simulate(:parallel,:end,Thread.current[:branch_sim_pos])
-      end
+      __weel_sim_stop(:parallel,hw,pos) if __weel_sim
 
       unless self.__weel_state == :stopping || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
@@ -466,34 +458,40 @@ class WEEL
     def parallel_branch(*vars)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
+
+      if __weel_sim
+        # catch the potential execution in loops inside a parallel
+        current_branch_sim_pos = branch_parent[:branch_sim_pos]
+      end  
+
       Thread.current[:branches] << Thread.new(*vars) do |*local|
         branch_parent[:mutex].synchronize do
           Thread.current.abort_on_exception = true
           Thread.current[:branch_status] = false
           Thread.current[:branch_parent] = branch_parent
 
+          if __weel_sim
+            Thread.current[:branch_sim_pos] = @__weel_sim += 1
+          end  
+
           # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
           # after branching, update it in the parent (TODO)
           if branch_parent[:alternative_executed] && branch_parent[:alternative_executed].length > 0
             Thread.current[:alternative_executed] = [branch_parent[:alternative_executed].last]
+            Thread.current[:alternative_mode] = [branch_parent[:alternative_mode].last]
           end
         end  
 
         Thread.stop
 
-        handlerwrapper = nil
-        sim_pos = @__weel_sim += 1
-        if __weel_sim == true
+        if __weel_sim
           handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-          handlerwrapper.simulate(:parallel,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
+          handlerwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
         end
 
         yield(*local)
 
-        if __weel_sim == true
-          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-          handlerwrapper.simulate(:parallel,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
-        end
+        __weel_sim_stop(:parallel_branch,handlerwrapper,current_branch_sim_pos) if __weel_sim
 
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_status] = true
@@ -521,12 +519,17 @@ class WEEL
     # Choose DSL-Construct
     # Defines a choice in the Workflow path.
     # May contain multiple execution alternatives
-    def choose # {{{
+    def choose(mode=:inclusive) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       Thread.current[:alternative_executed] ||= []
+      Thread.current[:alternative_mode] ||= []
       Thread.current[:alternative_executed] << false
+      Thread.current[:alternative_mode] << mode
+      hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode]) if __weel_sim
       yield
+      __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
       Thread.current[:alternative_executed].pop
+      Thread.current[:alternative_mode].pop
       nil
     end # }}}
 
@@ -535,30 +538,20 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      handlerwrapper = nil
-      sim_pos = @__weel_sim += 1
-      if __weel_sim == true
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-        handlerwrapper.simulate(:alternative,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
-      end
+      hw, pos = __weel_sim_start(:alternative,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      Thread.current[:mutex] ||= Mutex.new
+      Thread.current[:mutex].synchronize do
+        return if Thread.current[:alternative_mode] == :exclusive && Thread.current[:alternative_executed][-1] = true
+        Thread.current[:alternative_executed][-1] = true if condition
+      end  
       yield if __weel_is_in_search_mode || __weel_sim || condition
-      if __weel_sim == true
-        handlerwrapper.simulate(:alternative,:end,sim_pos,:parent => Thread.current[:branch_sim_pos])
-      end
-      Thread.current[:alternative_executed][-1] = true if condition
+      __weel_sim_stop(:alternative,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
     end # }}}
     def otherwise # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      handlerwrapper = nil
-      sim_pos = @__weel_sim += 1
-      if __weel_sim == true
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-        handlerwrapper.simulate(:otherwise,:start,sim_pos,:parent => Thread.current[:branch_sim_pos])
-      end
+      hw, pos = __weel_sim_start(:otherwise,:mode => Thread.current[:alternative_mode]) if __weel_sim
       yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
-      if __weel_sim == true
-        handlerwrapper.simulate(:otherwise,:end,sim_pos,:parent => Thread.current[:branch_sim_pos])
-      end
+      __weel_sim_stop(:otherwise,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -586,11 +579,9 @@ class WEEL
         return if __weel_is_in_search_mode
       end  
       if __weel_sim
-        sim_pos = @__weel_sim += 1
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-        handlerwrapper.simulate(:loop,:start,sim_pos,:testing=>condition[1],:parent => Thread.current[:branch_sim_pos])
+        hw, pos = __weel_sim_start(:loop,:testing=>condition[1])
         yield
-        handlerwrapper.simulate(:loop,:end,sim_pos,:testing=>condition[1],:parent => Thread.current[:branch_sim_pos])
+        __weel_sim_stop(:loop,hw,pos,:testing=>condition[1])
         return
       end  
       case condition[1]
@@ -686,6 +677,19 @@ class WEEL
 
     def __weel_sim
       @__weel_state == :simulating
+    end
+
+    def __weel_sim_start(what,options={})
+      current_branch_sim_pos = Thread.current[:branch_sim_pos]
+      Thread.current[:branch_sim_pos] = @__weel_sim += 1
+      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+      handlerwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
+      [handlerwrapper, current_branch_sim_pos]
+    end  
+
+    def __weel_sim_stop(what,handlerwrapper,current_branch_sim_pos,options={})
+      handlerwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
+      Thread.current[:branch_sim_pos] = current_branch_sim_pos
     end
   
   public

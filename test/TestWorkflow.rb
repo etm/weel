@@ -1,4 +1,5 @@
 require File.expand_path(::File.dirname(__FILE__) + '/../lib/weel')
+require File.expand_path(::File.dirname(__FILE__) + '/TestMixin')
 require File.expand_path(::File.dirname(__FILE__) + '/TestHandlerWrapper')
 
 class TestWorkflow < WEEL
