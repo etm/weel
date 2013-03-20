@@ -51,6 +51,50 @@ class Trace #{{{
     nil
   end
 
+  def generate_list
+    pp self
+    pp recursive_generate_list(self,:otherwise=>false)
+  end
+
+  def recursive_generate_list(container,options)
+    traces = [[]]
+    container.each do |ele|
+      case ele
+        when TraceActivity
+          traces.last << ele.tid
+        when TraceChoose
+          options[:otherwise] = true
+          tmp = recursive_generate_list(ele,options)
+          options[:otherwise] = false
+          add_traces(traces,tmp)
+
+          #tmp = recursive_generate_list(ele,options)
+        when TraceAlternative
+          next if options[:otherwise]
+          tmp = recursive_generate_list(ele,options)
+          add_traces(traces,tmp)
+        when TraceOtherwise
+          next unless options[:otherwise]
+          options[:otherwise] = false
+          tmp = recursive_generate_list(ele,options)
+          p tmp
+          p '---'
+          add_traces(traces,tmp)
+          options[:otherwise] = true
+      end  
+    end
+    traces
+  end
+
+  def add_traces(before,newones)
+    before.each do |trc|
+      newones.each do |no|
+        p trc
+        trc += no
+      end
+    end
+  end
+
   private :recursive_get_container
 end #}}}
 
@@ -74,7 +118,7 @@ class TraceContainer < TraceBase #{{{
   def close!; @open = false; end
 end #}}}
 
-class TraceElement < TraceBase #{{{
+class TraceActivity < TraceBase #{{{
   attr_accessor :item
   def initialize(tid, item)
     super tid
@@ -107,8 +151,6 @@ class PlainTrace
   end  
 end
 
-$trace = Trace.new
-
 class SimHandlerWrapper < WEEL::HandlerWrapperBase
   def initialize(args,endpoint=nil,position=nil,continue=nil)
     @__myhandler_stopped = false
@@ -119,11 +161,11 @@ class SimHandlerWrapper < WEEL::HandlerWrapperBase
   end
 
   def simulate(type,nesting,tid,parent,parameters={})
-    pp "#{type} - #{nesting} - #{tid} - #{parent} - #{parameters.inspect}"
+    # pp "#{type} - #{nesting} - #{tid} - #{parent} - #{parameters.inspect}"
 
     case type
       when :activity
-        $trace.get_container(parent) << TraceElement.new(tid,parameters[:endpoint])
+        $trace.get_container(parent) << TraceActivity.new(tid,parameters[:endpoint])
       when :parallel
         simulate_add_to_container($trace,nesting,parent,tid) { TraceParallel.new(tid) }
       when :loop

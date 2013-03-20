@@ -525,9 +525,9 @@ class WEEL
       Thread.current[:alternative_mode] ||= []
       Thread.current[:alternative_executed] << false
       Thread.current[:alternative_mode] << mode
-      hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode].last) if __weel_sim
       yield
-      __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode].last) if __weel_sim
       Thread.current[:alternative_executed].pop
       Thread.current[:alternative_mode].pop
       nil
