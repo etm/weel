@@ -12,6 +12,7 @@ class TestWFPDeferredChoice < Test::Unit::TestCase
           activity :a1_1, :call, :endpoint1 do
             data.choice = 1
           end
+          Thread.pass
         end
         parallel_branch do
           activity(:a1_2, :call, :endpoint1, :call => Proc.new{sleep 1.0}) do
@@ -30,8 +31,9 @@ class TestWFPDeferredChoice < Test::Unit::TestCase
     end
     @wf.start.join
     wf_assert('CALL a1_1')
-    wf_assert('CALL a1_2')
-    wf_sassert('Da1_1NLNa1_2Ca2_1Da2_1|finished|')
+    wf_assert('DONE a1_1')
+    wf_assert('MANIPULATE a1_1')
+    wf_sassert('NLNa1_2Ca2_1Da2_1|finished|')
     data = @wf.data
     assert(data[:choice] == 1, "data[:choice] has not the correct value [#{data[:x]}]")
   end

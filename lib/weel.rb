@@ -194,19 +194,19 @@ class WEEL
 
    class Continue #{{{
      def initialize
-       @thread = Thread.new{Thread.stop}
+       @q = Queue.new
+       @m = Mutex.new
      end  
      def waiting?
-       @thread.alive?
+       @m.synchronize do
+         !@q.empty?
+       end  
      end  
      def continue
-       while @thread.status != 'sleep' && @thread.alive?
-         Thread.pass
-       end
-       @thread.wakeup if @thread.alive? 
+       @q.push nil
      end
      def wait
-       @thread.join
+       @q.deq
      end
    end #}}}
 
@@ -620,15 +620,12 @@ class WEEL
     end  # }}}
     def __weel_recursive_continue(thread)# {{{
       return unless thread
-      if thread.alive? && thread[:continue] && thread[:continue].waiting?
+      if thread.alive? && thread[:continue]
         thread[:continue].continue
       end
-      if thread.alive? && thread[:branch_event] && thread[:branch_event].waiting?
+      if thread.alive? && thread[:branch_event]
         thread[:mutex].synchronize do
-          unless thread[:branch_event].nil?
-            thread[:branch_event].continue
-            # thread[:branch_event] = nil
-          end  
+          thread[:branch_event].continue unless thread[:branch_event].nil?
         end  
       end  
       if thread[:branches]

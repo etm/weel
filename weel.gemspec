@@ -1,18 +1,13 @@
 Gem::Specification.new do |s|
   s.name             = "weel"
-  s.version          = "1.1.1"
+  s.version          = "1.2.1"
   s.platform         = Gem::Platform::RUBY
-  s.summary          = "preliminary release of the Workflow Execution Engine Library (WEEL)"
+  s.license          = "LGPL-2"
+  s.summary          = "Preliminary release of the Workflow Execution Engine Library (WEEL)"
 
-  s.description = <<-EOF
-For WEE Library specific information see http://cpee.org/.
+  s.description      = "Workflow Execution Engine Library (WEEL)"
 
-Copyright (C) 2008-2013 Jürgen Mangler <juergen.mangler@gmail.com> and others.
-
-WEE Library is freely distributable according to the terms of the GNU Lesser General Public License (see the file 'COPYING').
-
-This program is distributed without any warranty. See the file 'COPYING' for details.
-EOF
+  s.required_ruby_version = '>=1.9.3'
 
   s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING Changelog FEATURES INSTALL Rakefile weel.gemspec README AUTHORS)
   s.require_path     = 'lib'

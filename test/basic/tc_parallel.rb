@@ -68,6 +68,7 @@ class TestParallel < Test::Unit::TestCase
       parallel :wait => 1 do
         parallel_branch do
           activity :a_1, :call, :endpoint1
+          Thread.pass
         end
         parallel_branch do
           activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
