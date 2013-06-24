@@ -32,7 +32,6 @@ end #}}}
 
 class WEEL
   def initialize(*args)# {{{
-    @wfsource = nil
     @dslr = DSLRealization.new
     @dslr.__weel_handlerwrapper_args = args
       
@@ -242,7 +241,7 @@ class WEEL
   def self::control(flow, &block)# {{{
     @@__weel_control_block = block
     define_method :initialize_control do
-      self.description(&(@@__weel_control_block))
+      self.description = @@__weel_control_block
     end
   end #  }}}
   def self::flow #{{{
@@ -787,44 +786,40 @@ public
   end # }}}
 
   # get/set workflow description
-  def description(code = nil,&blk) # {{{
-    bgiven = block_given?
-    if code.nil? && !bgiven
-      @wfsource
-    else
-      @wfsource = code unless bgiven
-      (class << self; self; end).class_eval do
-        define_method :__weel_control_flow do |state,final_state=:finished|
-          @dslr.__weel_positions.clear
-          @dslr.__weel_state = state
-          begin
-            if bgiven
-              @dslr.instance_eval(&blk)
-            else
-              @dslr.instance_eval(code)
-            end  
-          rescue Exception => err
-            @dslr.__weel_state = :stopping
-            handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
-            handlerwrapper.inform_syntax_error(err,code)
-          end
-          if @dslr.__weel_state == :running
-            @dslr.__weel_state = :finished 
-            ipc = { :unmark => [] }
-            @dslr.__weel_positions.each{|wp| ipc[:unmark] << wp.position}
-            @dslr.__weel_positions.clear
-            handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
-            handlerwrapper.inform_position_change(ipc)
-          end
-          if @dslr.__weel_state == :simulating
-            @dslr.__weel_state = final_state
+  def description(&blk)
+    self.description=(blk)
+  end
+  def description=(code)  # {{{
+    (class << self; self; end).class_eval do
+      define_method :__weel_control_flow do |state,final_state=:finished|
+        @dslr.__weel_positions.clear
+        @dslr.__weel_state = state
+        begin
+          if code.is_a? Proc
+            @dslr.instance_eval(&code)
+          else  
+            @dslr.instance_eval(code)
           end  
-          if @dslr.__weel_state == :stopping
-            @dslr.__weel_finalize
-          end
+        rescue Exception => err
+          @dslr.__weel_state = :stopping
+          handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
+          handlerwrapper.inform_syntax_error(err,code)
+        end
+        if @dslr.__weel_state == :running
+          @dslr.__weel_state = :finished 
+          ipc = { :unmark => [] }
+          @dslr.__weel_positions.each{|wp| ipc[:unmark] << wp.position}
+          @dslr.__weel_positions.clear
+          handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
+          handlerwrapper.inform_position_change(ipc)
+        end
+        if @dslr.__weel_state == :simulating
+          @dslr.__weel_state = final_state
+        end  
+        if @dslr.__weel_state == :stopping
+          @dslr.__weel_finalize
         end
       end
-      bgiven ? blk : code
     end
   end # }}}
 
