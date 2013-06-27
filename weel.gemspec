@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.license          = "LGPL-3"
   s.summary          = "Preliminary release of the Workflow Execution Engine Library (WEEL)"
 
-  s.description      = "Workflow Execution Engine Library (WEEL)"
+  s.description      = "see http://cpee.org"
 
   s.required_ruby_version = '>=1.9.3'
 
@@ -16,5 +16,5 @@ Gem::Specification.new do |s|
 
   s.authors          = ['Juergen eTM Mangler','Gerhard Stuermer']
   s.email            = 'juergen.mangler@gmail.com'
-  s.homepage         = 'http://cpee.org'
+  s.homepage         = 'http://cpee.org/'
 end
