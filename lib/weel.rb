@@ -854,7 +854,7 @@ public
 
   def sim # {{{
     stat = @dslr.__weel_state
-    return nil if stat != :ready && stat != :stopped
+    return nil unless stat == :ready || stat == :stopped
     @dslr.__weel_main = Thread.new do
       __weel_control_flow :simulating, stat
     end
