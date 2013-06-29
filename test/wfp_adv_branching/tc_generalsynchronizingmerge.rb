@@ -1,10 +1,10 @@
 require 'test/unit'
 require File.expand_path(::File.dirname(__FILE__) + '/../TestWorkflow')
 
-class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
+class TestWFPGeneralSynchronizingMerge < Test::Unit::TestCase
   include TestMixin
 
-  def test_localsyncmerge
+  def test_generalsyncmerge
     @wf.data[:cont] = true
     @wf.description do
       parallel do
@@ -16,7 +16,7 @@ class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
         end
         choose do
           alternative(true) do
-            loop post_test{puts data.break; data.break} do
+            loop post_test{data.break} do
               parallel_branch do
                 activity :a2_1, :call, :endpoint1
               end  
@@ -33,7 +33,7 @@ class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
       activity :a3, :call, :endpoint1
     end
     @wf.start.join
-    wf_sassert('|running|Ca2_decideDa2_decide')
+    wf_sassert('|running|Ca2_decideMa2_decideDa2_decide')
     wf_assert('CALL a1_1:')
     wf_assert('CALL a1_2:')
     wf_assert('CALL a2_1:')

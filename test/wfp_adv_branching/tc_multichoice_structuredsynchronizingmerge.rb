@@ -28,11 +28,12 @@ class TestWFPMultiChoice < Test::Unit::TestCase
           parallel_branch do
             alternative(data.x == 1) do
               activity :a1_1, :call, :endpoint1
+              Thread.pass
             end
           end
           parallel_branch do
             alternative(data.x > 0) do
-              activity :a1_2, :call, :endpoint1, :call => Proc.new{sleep 0.1}
+              activity :a1_2, :call, :endpoint1, :call => Proc.new{sleep 0.5}
             end
           end
         end
@@ -42,6 +43,6 @@ class TestWFPMultiChoice < Test::Unit::TestCase
     @wf.start.join
     wf_assert('CALL a1_1')
     wf_assert('CALL a1_2')
-    wf_sassert('Da1_1Da1_2Ca2Da2|finished|')
+    wf_sassert('Da1_2Ca2Da2|finished|')
   end
 end

@@ -77,8 +77,6 @@ class Trace #{{{
           next unless options[:otherwise]
           options[:otherwise] = false
           tmp = recursive_generate_list(ele,options)
-          p tmp
-          p '---'
           add_traces(traces,tmp)
           options[:otherwise] = true
       end  
@@ -89,7 +87,6 @@ class Trace #{{{
   def add_traces(before,newones)
     before.each do |trc|
       newones.each do |no|
-        p trc
         trc += no
       end
     end
