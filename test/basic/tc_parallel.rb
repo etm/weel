@@ -32,8 +32,7 @@ class TestParallel < Test::Unit::TestCase
     @wf.description do
       parallel :wait do
         parallel_branch do
-          activity :a_1, :call, :endpoint1
-          Thread.pass 
+          activity :a_1, :call, :endpoint1, :call =>  Proc.new{ sleep 0.2 }
         end
         parallel_branch do
           activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
