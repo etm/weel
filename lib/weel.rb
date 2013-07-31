@@ -71,6 +71,32 @@ class WEEL
     class NoLongerNecessary < Exception; end
   end # }}}
 
+  class ManipulateRealizationHandler # {{{
+    def initialize(data,endpoints,status)
+      @__weel_data = data
+      @__weel_endpoints = endpoints
+      @__weel_status = status
+      @changed_status = status.id
+      @changed_data = []
+      @changed_endpoints = []
+    end
+
+    attr_reader :changed_data, :changed_endpoints
+
+    def changed_status
+      @changed_status != status.id
+    end
+
+    def data
+      @__weel_data
+    end
+    def endpoints
+      @__weel_endpoints
+    end
+    def status
+      @__weel_status
+    end
+  end # }}}
   class ManipulateRealization # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
@@ -116,7 +142,6 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      
       if args.empty? && @__weel_values.has_key?(name)
         @__weel_values[name] 
       elsif name.to_s[-1..-1] == "=" && args.length == 1
@@ -194,8 +219,8 @@ class WEEL
 
     def callback(result); end
 
-    def condition(code); code.is_a?(Proc) ? code.call : true; end
-    def manipulation(code); code.is_a?(Proc) ? code.call : nil; end
+    def condition(code); true; end
+    def manipulation(mr,code); nil; end
   end  # }}}
 
   class Position # {{{
@@ -333,24 +358,29 @@ class WEEL
 
         case type
           when :manipulate
-            if block_given?
+            if blk.is_a?(Proc) || blk.is_a?(String)
               handlerwrapper.inform_activity_manipulate
-              mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
               status = nil
               parameters.delete_if do |para|
                 status = para if para.is_a?(Status)
                 para.is_a?(Status)
               end
-              case blk.arity
-                when 1; mr.instance_exec(parameters,&blk)
-                when 2; mr.instance_exec(parameters,status,&blk)
-                else
-                  mr.instance_eval(&blk)
-              end
+              if blk.is_a?(Proc)
+                mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                case blk.arity
+                  when 1; mr.instance_exec(parameters,&blk)
+                  when 2; mr.instance_exec(parameters,status,&blk)
+                  else
+                    mr.instance_eval(&blk)
+                end
+              elsif blk.is_a?(String)  
+                mr = ManipulateRealizationHandler.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                handlerwrapper.manipulate(mr,blk)
+              end  
               handlerwrapper.inform_manipulate_change(
-                (mr.changed_status ? @__weel_status : nil), 
-                (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
+                ((mr && mr.changed_status) ? @__weel_status : nil), 
+                ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
+                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil)
               )
               handlerwrapper.inform_activity_done
               wp.detail = :after
@@ -382,16 +412,21 @@ class WEEL
               wp.passthrough = handlerwrapper.activity_passthrough_value
             end  
 
-            if wp.passthrough.nil? && block_given?
+            if wp.passthrough.nil? && (blk.is_a?(Proc) || blk.is_a?(String))
               handlerwrapper.inform_activity_manipulate
-              mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
               status = handlerwrapper.activity_result_status
-              case blk.arity
-                when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
-                when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
-                else
-                  mr.instance_eval(&blk)
-              end  
+              if blk.is_a?(Proc)
+                mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                case blk.arity
+                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
+                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
+                  else
+                    mr.instance_eval(&blk)
+                end  
+              elsif blk.is_a?(String)  
+                mr = ManipulateRealizationHandler.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                handlerwrapper.manipulate(mr,blk)
+              end
               handlerwrapper.inform_manipulate_change(
                 (mr.changed_status ? @__weel_status : nil), 
                 (mr.changed_data.any? ? mr.changed_data.uniq : nil),
@@ -558,6 +593,10 @@ class WEEL
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode] == :exclusive && Thread.current[:alternative_executed][-1] = true
+        if condition.is_a?(String) && !__weel_sim
+          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+          condition = handlerwrapper.condition(condition)
+        end
         Thread.current[:alternative_executed][-1] = true if condition
       end  
       yield if __weel_is_in_search_mode || __weel_sim || condition
@@ -600,20 +639,20 @@ class WEEL
         __weel_sim_stop(:loop,hw,pos,:testing=>condition[1])
         return
       end
-      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition[0].is_a?(Proc)
       case condition[1]
         when :pre_test
-          yield while handlerwrapper.condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
+          yield while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.condition(condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
         when :post_test
-          begin; yield; end while handlerwrapper.condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
+          begin; yield; end while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.condition(condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
       end
     end # }}}
 
-    def pre_test(code='nil',&blk)# {{{
-      [code || blk, :pre_test]
+    def pre_test(code=nil,&blk)# {{{
+      [code.nil? ? blk : code, :pre_test]
     end # }}}
-    def post_test(code='nil',&blk)# {{{
-      [code || blk, :post_test]
+    def post_test(code=nil,&blk)# {{{
+      [code.nil? ? blk : code, :post_test]
     end # }}}
 
     def status # {{{
