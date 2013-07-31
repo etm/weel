@@ -193,6 +193,9 @@ class WEEL
     def simulate(type,nesting,eid,parent,parameters={}); end
 
     def callback(result); end
+
+    def condition(code); code.is_a?(Proc) ? code.call : true; end
+    def manipulation(code); code.is_a?(Proc) ? code.call : nil; end
   end  # }}}
 
   class Position # {{{
@@ -583,7 +586,7 @@ class WEEL
 
     # Defines a Cycle (loop/iteration)
     def loop(condition)# {{{ 
-      unless condition.is_a?(Array) && condition[0].is_a?(Proc) && [:pre_test,:post_test].include?(condition[1])
+      unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1])
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
@@ -596,20 +599,21 @@ class WEEL
         yield
         __weel_sim_stop(:loop,hw,pos,:testing=>condition[1])
         return
-      end  
+      end
+      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
       case condition[1]
         when :pre_test
-          yield while condition[0].call && self.__weel_state != :stopping && self.__weel_state != :stopped
+          yield while handlerwrapper.condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
         when :post_test
-          begin; yield; end while condition[0].call && self.__weel_state != :stopping && self.__weel_state != :stopped
+          begin; yield; end while handlerwrapper.condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
       end
     end # }}}
 
-    def pre_test(&blk)# {{{
-      [blk, :pre_test]
+    def pre_test(code='nil',&blk)# {{{
+      [code || blk, :pre_test]
     end # }}}
-    def post_test(&blk)# {{{
-      [blk, :post_test]
+    def post_test(code='nil',&blk)# {{{
+      [code || blk, :post_test]
     end # }}}
 
     def status # {{{
