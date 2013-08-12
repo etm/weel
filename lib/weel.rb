@@ -71,7 +71,7 @@ class WEEL
     class NoLongerNecessary < Exception; end
   end # }}}
 
-  class ManipulateRealizationHandler # {{{
+  class ManipulateExternal # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
       @__weel_endpoints = endpoints
@@ -97,7 +97,7 @@ class WEEL
       @__weel_status
     end
   end # }}}
-  class ManipulateRealization # {{{
+  class ManipulateInternal # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
       @__weel_endpoints = endpoints
@@ -366,7 +366,7 @@ class WEEL
                 para.is_a?(Status)
               end
               if blk.is_a?(Proc)
-                mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 case blk.arity
                   when 1; mr.instance_exec(parameters,&blk)
                   when 2; mr.instance_exec(parameters,status,&blk)
@@ -374,7 +374,7 @@ class WEEL
                     mr.instance_eval(&blk)
                 end
               elsif blk.is_a?(String)  
-                mr = ManipulateRealizationHandler.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 handlerwrapper.manipulate(mr,blk)
               end  
               handlerwrapper.inform_manipulate_change(
@@ -416,7 +416,7 @@ class WEEL
               handlerwrapper.inform_activity_manipulate
               status = handlerwrapper.activity_result_status
               if blk.is_a?(Proc)
-                mr = ManipulateRealization.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 case blk.arity
                   when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
                   when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
@@ -424,7 +424,7 @@ class WEEL
                     mr.instance_eval(&blk)
                 end  
               elsif blk.is_a?(String)  
-                mr = ManipulateRealizationHandler.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 handlerwrapper.manipulate(mr,blk)
               end
               handlerwrapper.inform_manipulate_change(
