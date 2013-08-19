@@ -305,158 +305,17 @@ class WEEL
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args
     attr_reader :__weel_state, :__weel_status
 
-    # DSL-Construct for an atomic activity
-    # position: a unique identifier within the wf-description (may be used by the search to identify a starting point
-    # type:
-    #   - :manipulate - just yield a given block
-    #   - :call - order the handlerwrapper to perform a service call
+    # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
+    # Calls can also manipulate context (after the invoking the external services)
+    # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def activity(position, type, endpoint=nil, *parameters, &blk)# {{{
-      position = __weel_position_test position
-      begin
-        searchmode = __weel_is_in_search_mode(position)
-        return if searchmode == true
-        return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-
-        Thread.current[:continue] = Continue.new
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, @__weel_endpoints[endpoint], position, Thread.current[:continue]
-
-        if __weel_sim
-          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters, :endpoint => endpoint, :type => type)
-          return
-        end
-
-        ipc = {}
-        if searchmode == :after
-          wp = WEEL::Position.new(position, :after, nil)
-          ipc[:after] = [wp.position]
-        else  
-          if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
-            @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
-            ipc[:unmark] ||= []
-            ipc[:unmark] << Thread.current[:branch_parent][:branch_position].position rescue nil
-            Thread.current[:branch_parent][:branch_position] = nil
-          end  
-          if Thread.current[:branch_position]
-            @__weel_positions.delete Thread.current[:branch_position]
-            ipc[:unmark] ||= []
-            ipc[:unmark] << Thread.current[:branch_position].position rescue nil
-          end  
-          wp = WEEL::Position.new(position, :at, nil)
-          ipc[:at] = [wp.position]
-        end
-        @__weel_positions << wp
-        Thread.current[:branch_position] = wp
-
-        handlerwrapper.inform_position_change(ipc)
-
-        # searchmode position is after, jump directly to vote_sync_after
-        raise Signal::Proceed if searchmode == :after
-
-        raise Signal::Stop unless handlerwrapper.vote_sync_before
-
-        case type
-          when :manipulate
-            if blk.is_a?(Proc) || blk.is_a?(String)
-              handlerwrapper.inform_activity_manipulate
-              status = nil
-              parameters.delete_if do |para|
-                status = para if para.is_a?(Status)
-                para.is_a?(Status)
-              end
-              if blk.is_a?(Proc)
-                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case blk.arity
-                  when 1; mr.instance_exec(parameters,&blk)
-                  when 2; mr.instance_exec(parameters,status,&blk)
-                  else
-                    mr.instance_eval(&blk)
-                end
-              elsif blk.is_a?(String)  
-                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,blk)
-              end  
-              handlerwrapper.inform_manipulate_change(
-                ((mr && mr.changed_status) ? @__weel_status : nil), 
-                ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
-                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil)
-              )
-              handlerwrapper.inform_activity_done
-              wp.detail = :after
-              handlerwrapper.inform_position_change :after => [wp.position]
-            end  
-          when :call
-            params = { }
-            passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
-            parameters.each do |p|
-              if p.class == Hash && parameters.length == 1
-                params = p
-              else  
-                if !p.is_a?(Symbol) || !@__weel_data.include?(p)
-                  raise("not all passed parameters are data elements")
-                end
-                params[p] = @__weel_data[p]
-              end
-            end
-            # handshake call and wait until it finished
-            handlerwrapper.activity_handle passthrough, params
-            Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
-
-            if Thread.current[:nolongernecessary]
-              handlerwrapper.activity_no_longer_necessary 
-              raise Signal::NoLongerNecessary
-            end  
-            if self.__weel_state == :stopping
-              handlerwrapper.activity_stop
-              wp.passthrough = handlerwrapper.activity_passthrough_value
-            end  
-
-            if wp.passthrough.nil? && (blk.is_a?(Proc) || blk.is_a?(String))
-              handlerwrapper.inform_activity_manipulate
-              status = handlerwrapper.activity_result_status
-              if blk.is_a?(Proc)
-                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case blk.arity
-                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
-                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
-                  else
-                    mr.instance_eval(&blk)
-                end  
-              elsif blk.is_a?(String)  
-                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,blk)
-              end
-              handlerwrapper.inform_manipulate_change(
-                (mr.changed_status ? @__weel_status : nil), 
-                (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
-              )
-            end
-            if wp.passthrough.nil?
-              handlerwrapper.inform_activity_done
-              wp.detail = :after
-              handlerwrapper.inform_position_change :after => [wp.position]
-            end  
-        end
-        raise Signal::Proceed
-      rescue Signal::SkipManipulate, Signal::Proceed
-        if self.__weel_state != :stopping && !handlerwrapper.vote_sync_after
-          self.__weel_state = :stopping
-          wp.detail = :unmark
-        end
-      rescue Signal::NoLongerNecessary
-        @__weel_positions.delete wp
-        Thread.current[:branch_position] = nil
-        wp.detail = :unmark
-        handlerwrapper.inform_position_change :unmark => [wp.position]
-      rescue Signal::StopSkipManipulate, Signal::Stop
-        self.__weel_state = :stopping
-      rescue => err
-        handlerwrapper.inform_activity_failed err
-        self.__weel_state = :stopping
-      end
-    end # }}}
+    def call(position, endpoint, parameters={}, code=nil, &blk)
+      __weel_activity(position,:call,endpoint,parameters,code||blk)
+    end  
+    def manipulate(position, endpoint, code=nil, &blk)
+      __weel_activity(position,:manipulate,nil,{},code||blk)
+    end  
     
     # Parallel DSL-Construct
     # Defines Workflow paths that can be executed parallel.
@@ -666,6 +525,158 @@ class WEEL
     end # }}}
 
   private
+    def __weel_activity(position, type, endpoint, parameters, code)# {{{
+      position = __weel_position_test position
+      begin
+        searchmode = __weel_is_in_search_mode(position)
+        return if searchmode == true
+        return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+
+        Thread.current[:continue] = Continue.new
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, @__weel_endpoints[endpoint], position, Thread.current[:continue]
+
+        if __weel_sim
+          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters, :endpoint => endpoint, :type => type)
+          return
+        end
+
+        ipc = {}
+        if searchmode == :after
+          wp = WEEL::Position.new(position, :after, nil)
+          ipc[:after] = [wp.position]
+        else  
+          if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
+            @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
+            ipc[:unmark] ||= []
+            ipc[:unmark] << Thread.current[:branch_parent][:branch_position].position rescue nil
+            Thread.current[:branch_parent][:branch_position] = nil
+          end  
+          if Thread.current[:branch_position]
+            @__weel_positions.delete Thread.current[:branch_position]
+            ipc[:unmark] ||= []
+            ipc[:unmark] << Thread.current[:branch_position].position rescue nil
+          end  
+          wp = WEEL::Position.new(position, :at, nil)
+          ipc[:at] = [wp.position]
+        end
+        @__weel_positions << wp
+        Thread.current[:branch_position] = wp
+
+        handlerwrapper.inform_position_change(ipc)
+
+        # searchmode position is after, jump directly to vote_sync_after
+        raise Signal::Proceed if searchmode == :after
+
+        raise Signal::Stop unless handlerwrapper.vote_sync_before
+
+        case type
+          when :manipulate
+            if code.is_a?(Proc) || code.is_a?(String)
+              handlerwrapper.inform_activity_manipulate
+              if blk.is_a?(Proc)
+                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                case blk.arity
+                  when 1; mr.instance_exec(parameters,&blk)
+                  else
+                    mr.instance_eval(&blk)
+                end
+              elsif blk.is_a?(String)  
+                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                handlerwrapper.manipulate(mr,blk)
+              end  
+              handlerwrapper.inform_manipulate_change(
+                ((mr && mr.changed_status) ? @__weel_status : nil), 
+                ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
+                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil)
+              )
+              handlerwrapper.inform_activity_done
+              wp.detail = :after
+              handlerwrapper.inform_position_change :after => [wp.position]
+            end  
+          when :call
+            params = { }
+            passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
+            case parameters 
+              when Hash
+                parameters.each do |k,p|
+                  if p.is_a?(Symbol) && @__weel_data.include?(p)
+                    params[k] = @__weel_data[p]
+                  elsif k == :code && p.is_a?(String)
+                    blk = p
+                  else
+                    params[k] = p
+                  end
+                end  
+              when Array  
+                parameters.each_with_index do |p,i|
+                  if p.is_a?(Symbol) && @__weel_data.include?(p)
+                    params[p] = @__weel_data[p]
+                  else
+                    params[i] = p
+                  end  
+                end
+              else  
+                raise("invalid parameters")
+            end
+            # handshake call and wait until it finished
+            handlerwrapper.activity_handle passthrough, params
+            Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
+
+            if Thread.current[:nolongernecessary]
+              handlerwrapper.activity_no_longer_necessary 
+              raise Signal::NoLongerNecessary
+            end  
+            if self.__weel_state == :stopping
+              handlerwrapper.activity_stop
+              wp.passthrough = handlerwrapper.activity_passthrough_value
+            end  
+
+            if wp.passthrough.nil? && (blk.is_a?(Proc) || blk.is_a?(String))
+              handlerwrapper.inform_activity_manipulate
+              status = handlerwrapper.activity_result_status
+              if blk.is_a?(Proc)
+                mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                case blk.arity
+                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
+                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
+                  else
+                    mr.instance_eval(&blk)
+                end  
+              elsif blk.is_a?(String)  
+                mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                handlerwrapper.manipulate(mr,blk)
+              end
+              handlerwrapper.inform_manipulate_change(
+                (mr.changed_status ? @__weel_status : nil), 
+                (mr.changed_data.any? ? mr.changed_data.uniq : nil),
+                (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
+              )
+            end
+            if wp.passthrough.nil?
+              handlerwrapper.inform_activity_done
+              wp.detail = :after
+              handlerwrapper.inform_position_change :after => [wp.position]
+            end  
+        end
+        raise Signal::Proceed
+      rescue Signal::SkipManipulate, Signal::Proceed
+        if self.__weel_state != :stopping && !handlerwrapper.vote_sync_after
+          self.__weel_state = :stopping
+          wp.detail = :unmark
+        end
+      rescue Signal::NoLongerNecessary
+        @__weel_positions.delete wp
+        Thread.current[:branch_position] = nil
+        wp.detail = :unmark
+        handlerwrapper.inform_position_change :unmark => [wp.position]
+      rescue Signal::StopSkipManipulate, Signal::Stop
+        self.__weel_state = :stopping
+      rescue => err
+        handlerwrapper.inform_activity_failed err
+        self.__weel_state = :stopping
+      end
+    end # }}}
+
     def __weel_recursive_print(thread,indent='')# {{{
       p "#{indent}#{thread}"
       if thread[:branches]
