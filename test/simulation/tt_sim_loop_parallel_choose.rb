@@ -20,7 +20,7 @@ class TestSimParallelChoose < Test::Unit::TestCase
           choose do
             alternative data.costs > 400 do 
               parallel_branch data.persons do |p|
-                activity :a2, :call, :endpoint1 do
+                call :a2, :endpoint1 do
                   data.hotels << 'Rathaus'
                   data.costs += 200
                 end
@@ -28,14 +28,14 @@ class TestSimParallelChoose < Test::Unit::TestCase
             end  
             otherwise do
               parallel_branch data.persons do |p|
-                activity :a2, :call, :endpoint1 do
+                call :a2, :endpoint1 do
                   data.hotels << 'Rathaus'
                   data.costs += 200
                 end
               end
             end
           end
-          activity :a3, :manipulate do
+          manipulate :a3 do
             data.persons -= 1
           end
         end

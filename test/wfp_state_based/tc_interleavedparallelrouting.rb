@@ -10,15 +10,15 @@ class TestWFPInterleavedParallelRouting < Test::Unit::TestCase
       parallel do
         parallel_branch do
           critical(:section1) do
-            activity :a1, :call, :endpoint1
+            call :a1, :endpoint1
           end
           critical(:section1) do
-            activity :a3, :call, :endpoint1
+            call :a3, :endpoint1
           end
         end
         parallel_branch do
           critical(:section1) do
-            activity :a2, :call, :endpoint1
+            call :a2, :endpoint1
           end
         end
       end

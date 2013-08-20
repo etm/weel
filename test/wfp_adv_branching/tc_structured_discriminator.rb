@@ -9,14 +9,14 @@ class TestWFPStructuredDiscriminator < Test::Unit::TestCase
     @wf.description do
       parallel :wait => 1 do
         parallel_branch do
-          activity :a_1_1, :call, :endpoint1
+          call :a_1_1, :endpoint1
           Thread.pass
         end
         parallel_branch do
-          activity :a_1_2, :call, :endpoint1, :call => Proc.new{sleep 0.2}
+          call :a_1_2, :endpoint1, :call => Proc.new{sleep 0.2}
         end
       end
-      activity :a_2, :call, :endpoint1
+      call :a_2, :endpoint1
     end
     t = @wf.start.join
     wf_assert("CALL a_1_1:")

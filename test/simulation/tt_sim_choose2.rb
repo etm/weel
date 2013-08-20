@@ -17,13 +17,13 @@ class TestSimChoose2 < Test::Unit::TestCase
     control flow do
       choose :inclusive do
         alternative data.costs > 400 do
-          activity :a1, :call, :endpoint1
+          call :a1, :endpoint1
         end
         alternative data.costs > 400 do
-          activity :a2, :call, :endpoint1
+          call :a2, :endpoint1
         end
         otherwise do
-          activity :a2, :call, :endpoint1
+          call :a2, :endpoint1
         end
       end
     end

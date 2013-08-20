@@ -8,13 +8,13 @@ class TestChoose < Test::Unit::TestCase
     @wf.description do
       choose do
         alternative true do
-          activity :a_1, :call, :endpoint1
+          call :a_1, :endpoint1
         end
         alternative false do
-          activity :a_2, :call, :endpoint1
+          call :a_2, :endpoint1
         end
         otherwise do
-          activity :a_3, :call, :endpoint1
+          call :a_3, :endpoint1
         end
       end
     end
@@ -28,10 +28,10 @@ class TestChoose < Test::Unit::TestCase
     @wf.description do
       choose do
         alternative false do
-          activity :a_1, :call, :endpoint1
+          call :a_1, :endpoint1
         end
         otherwise do
-          activity :a_2, :call, :endpoint1
+          call :a_2, :endpoint1
         end
       end
     end
@@ -46,25 +46,25 @@ class TestChoose < Test::Unit::TestCase
         alternative true do
           choose do
             alternative false do
-              activity :a_1_1, :call, :endpoint1
+              call :a_1_1, :endpoint1
             end
             alternative true do
               choose do
                 alternative false do
-                  activity :a_1_1_1, :call, :endpoint1
+                  call :a_1_1_1, :endpoint1
                 end
                 otherwise do
-                  activity :a_1_1_2, :call, :endpoint1
+                  call :a_1_1_2, :endpoint1
                 end
               end
             end
             otherwise do
-              activity :a_1_3, :call, :endpoint1
+              call :a_1_3, :endpoint1
             end
           end
         end
         otherwise do
-          activity :a_2, :call, :endpoint1
+          call :a_2, :endpoint1
         end
       end
     end

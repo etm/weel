@@ -9,28 +9,28 @@ class TestWFPGeneralSynchronizingMerge < Test::Unit::TestCase
     @wf.description do
       parallel do
         parallel_branch do
-          activity :a1_1, :call, :endpoint1, :call => Proc.new{sleep 0.2}
+          call :a1_1, :endpoint1, :call => Proc.new{sleep 0.2}
         end
         parallel_branch do
-          activity :a1_2, :call, :endpoint1, :call => Proc.new{sleep 0.4}
+          call :a1_2, :endpoint1, :call => Proc.new{sleep 0.4}
         end
         choose do
           alternative(true) do
             loop post_test{data.break} do
               parallel_branch do
-                activity :a2_1, :call, :endpoint1
+                call :a2_1, :endpoint1
               end  
-              activity(:a2_decide, :call, :endpoint1, :result => false) do |e|
+              call(:a2_decide, :endpoint1, :result => false) do |e|
                 data.break = e
               end
             end  
           end
           otherwise do
-            activity :a2_2, :call, :endpoint1, :call => Proc.new{sleep 0.1}
+            call :a2_2, :endpoint1, :call => Proc.new{sleep 0.1}
           end
         end
       end
-      activity :a3, :call, :endpoint1
+      call :a3, :endpoint1
     end
     @wf.start.join
     wf_sassert('|running|Ca2_decideMa2_decideDa2_decide')

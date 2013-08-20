@@ -313,7 +313,7 @@ class WEEL
     def call(position, endpoint, parameters={}, code=nil, &blk)
       __weel_activity(position,:call,endpoint,parameters,code||blk)
     end  
-    def manipulate(position, endpoint, code=nil, &blk)
+    def manipulate(position, code=nil, &blk)
       __weel_activity(position,:manipulate,nil,{},code||blk)
     end  
     
@@ -508,10 +508,10 @@ class WEEL
     end # }}}
 
     def pre_test(code=nil,&blk)# {{{
-      [code.nil? ? blk : code, :pre_test]
+      [code || blk, :pre_test]
     end # }}}
     def post_test(code=nil,&blk)# {{{
-      [code.nil? ? blk : code, :post_test]
+      [code || blk, :post_test]
     end # }}}
 
     def status # {{{
@@ -573,16 +573,16 @@ class WEEL
           when :manipulate
             if code.is_a?(Proc) || code.is_a?(String)
               handlerwrapper.inform_activity_manipulate
-              if blk.is_a?(Proc)
+              if code.is_a?(Proc)
                 mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case blk.arity
-                  when 1; mr.instance_exec(parameters,&blk)
+                case code.arity
+                  when 1; mr.instance_exec(parameters,&code)
                   else
-                    mr.instance_eval(&blk)
+                    mr.instance_eval(&code)
                 end
-              elsif blk.is_a?(String)  
+              elsif code.is_a?(String)  
                 mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,blk)
+                handlerwrapper.manipulate(mr,code)
               end  
               handlerwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil), 
@@ -602,7 +602,7 @@ class WEEL
                   if p.is_a?(Symbol) && @__weel_data.include?(p)
                     params[k] = @__weel_data[p]
                   elsif k == :code && p.is_a?(String)
-                    blk = p
+                    code = p
                   else
                     params[k] = p
                   end
@@ -631,20 +631,20 @@ class WEEL
               wp.passthrough = handlerwrapper.activity_passthrough_value
             end  
 
-            if wp.passthrough.nil? && (blk.is_a?(Proc) || blk.is_a?(String))
+            if wp.passthrough.nil? && (code.is_a?(Proc) || code.is_a?(String))
               handlerwrapper.inform_activity_manipulate
               status = handlerwrapper.activity_result_status
-              if blk.is_a?(Proc)
+              if code.is_a?(Proc)
                 mr = ManipulateInternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case blk.arity
-                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&blk)
-                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&blk)
+                case code.arity
+                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
                   else
-                    mr.instance_eval(&blk)
+                    mr.instance_eval(&code)
                 end  
-              elsif blk.is_a?(String)  
+              elsif code.is_a?(String)  
                 mr = ManipulateExternal.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,blk)
+                handlerwrapper.manipulate(mr,code)
               end
               handlerwrapper.inform_manipulate_change(
                 (mr.changed_status ? @__weel_status : nil), 

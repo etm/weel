@@ -10,7 +10,7 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
     @wf.data[:costs]   = 0
     @wf.data[:persons] = 3
     @wf.description do
-      activity :a1, :call, :endpoint1 do
+      call :a1, :endpoint1 do
         data.airline = 'Aeroflot'
         data.costs  += 101
         status.update 1, 'Hotel'
@@ -18,19 +18,19 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
       parallel do
         loop pre_test{data.persons > 0} do
           parallel_branch data.persons do |p|
-            activity :a2, :call, :endpoint1 do
+            call :a2, :endpoint1 do
               data.hotels << 'Rathaus'
               data.costs += 200
             end
           end
-          activity :a3, :manipulate do
+          manipulate :a3 do
             data.persons -= 1
           end
         end
       end
       choose do
         alternative data.costs > 400 do
-          activity :a4, :call, :endpoint1
+          call :a4, :endpoint1
         end
       end
     end
@@ -45,7 +45,7 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
     @wf.data[:costs]   = 802
     @wf.data[:persons] = 2
     @wf.description do
-      activity :a1, :call, :endpoint1 do
+      call :a1, :endpoint1 do
         data.airline = 'Aeroflot'
         data.costs  += 101
         status.update 1, 'Hotel'
@@ -53,19 +53,19 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
       parallel do
         loop pre_test{data.persons > 0} do
           parallel_branch data.persons do |p|
-            activity :a2, :call, :endpoint1 do
+            call :a2, :endpoint1 do
               data.hotels << 'Rathaus'
               data.costs += 200
             end
           end
-          activity :a3, :manipulate do
+          manipulate :a3 do
             data.persons -= 1
           end
         end
       end
       choose do
         alternative data.costs > 700 do
-          activity :a4, :call, :endpoint1
+          call :a4, :endpoint1
         end
       end
     end
@@ -81,7 +81,7 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
     @wf.data[:costs]   = 802
     @wf.data[:persons] = 2
     @wf.description do
-      activity :a1, :call, :endpoint1 do
+      call :a1, :endpoint1 do
         data.airline = 'Aeroflot'
         data.costs  += 101
         status.update 1, 'Hotel'
@@ -89,19 +89,19 @@ class TestGeneralsynchonizingmergeLoopsearch < Test::Unit::TestCase
       parallel do
         loop pre_test{data.persons > 0} do
           parallel_branch data.persons do |p|
-            activity :a2, :call, :endpoint1 do
+            call :a2, :endpoint1 do
               data.hotels << 'Rathaus'
               data.costs += 200
             end
           end
-          activity :a3, :manipulate do
+          manipulate :a3 do
             data.persons -= 1
           end
         end
       end
       choose do
         alternative data.costs > 700 do
-          activity :a4, :call, :endpoint1
+          call :a4, :endpoint1
         end
       end
     end

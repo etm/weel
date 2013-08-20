@@ -15,12 +15,12 @@ class TestSimActivities < Test::Unit::TestCase
     data :persons => 3
 
     control flow do
-      activity :a1, :call, :endpoint1 do
+      call :a1, :endpoint1 do
         data.airline = 'Aeroflot'
         data.costs  += 101
         status.update 1, 'Hotel'
       end
-      activity :a2, :call, :endpoint1 do
+      call :a2, :endpoint1 do
         data.airline = 'Aeroflot'
         data.costs  += 101
         status.update 1, 'Hotel'

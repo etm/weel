@@ -6,9 +6,9 @@ class TestSearch < Test::Unit::TestCase
 
   def test_search_impact_single
     @wf.description do
-      activity :a1_1, :call, :endpoint1
-      activity :a1_2, :call, :endpoint1
-      activity :a1_3, :call, :endpoint1
+      call :a1_1, :endpoint1
+      call :a1_2, :endpoint1
+      call :a1_3, :endpoint1
     end
     @wf.search WEEL::Position.new(:a1_2, :at)
     @wf.start.join
@@ -16,16 +16,16 @@ class TestSearch < Test::Unit::TestCase
   end
   def test_search_impact_dual
     @wf.description do
-      activity :a1, :call, :endpoint1
+      call :a1, :endpoint1
       parallel do
         parallel_branch do
-          activity :a2_1, :call, :endpoint1
+          call :a2_1, :endpoint1
         end
         parallel_branch do
-          activity :a2_2, :call, :endpoint1
+          call :a2_2, :endpoint1
         end
       end
-      activity :a3, :call, :endpoint1
+      call :a3, :endpoint1
     end
     @wf.search [WEEL::Position.new(:a2_1, :at), WEEL::Position.new(:a2_2, :at)]
     @wf.start.join

@@ -8,10 +8,10 @@ class TestWFPExclusiveChoice < Test::Unit::TestCase
     @wf.description do
       choose do
         alternative(true) do
-          activity :a1_1, :call, :endpoint1
+          call :a1_1, :endpoint1
         end
         otherwise do
-          activity :a1_2, :call, :endpoint1
+          call :a1_2, :endpoint1
         end
       end
     end

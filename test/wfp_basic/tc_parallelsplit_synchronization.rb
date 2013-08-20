@@ -8,13 +8,13 @@ class TestWFPParallel < Test::Unit::TestCase
     @wf.description do
       parallel :wait do
         parallel_branch do
-          activity :a1_1, :call, :endpoint1
+          call :a1_1, :endpoint1
         end
         parallel_branch do
-          activity :a1_2, :call, :endpoint1
+          call :a1_2, :endpoint1
         end
       end
-      activity :a2, :call, :endpoint1
+      call :a2, :endpoint1
     end
     @wf.start.join
     wf_assert('CALL a1_1')

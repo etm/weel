@@ -18,23 +18,23 @@ class TestSimParallel < Test::Unit::TestCase
     control flow do
       parallel do
         parallel_branch do
-          activity :a1, :call, :endpoint1 do
+          call :a1, :endpoint1 do
             data.hotels << 'Rathaus'
             data.costs += 200
           end
         end
         loop pre_test{data.persons > 0} do
           parallel_branch data.persons do |p|
-            activity :a2, :call, :endpoint1 do
+            call :a2, :endpoint1 do
               data.hotels << 'Rathaus'
               data.costs += 200
             end
-            activity :a3, :call, :endpoint1 do
+            call :a3, :endpoint1 do
               data.hotels << 'Rathaus'
               data.costs += 200
             end
           end
-          activity :a4, :manipulate do
+          manipulate :a4 do
             data.persons -= 1
           end
         end

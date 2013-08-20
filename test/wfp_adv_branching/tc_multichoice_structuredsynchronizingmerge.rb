@@ -9,13 +9,13 @@ class TestWFPMultiChoice < Test::Unit::TestCase
     @wf.description do
       choose do
         alternative(data.x == 1) do
-          activity :a1_1, :call, :endpoint1
+          call :a1_1, :endpoint1
         end
         alternative(data.x > 0) do
-          activity :a1_2, :call, :endpoint1
+          call :a1_2, :endpoint1
         end
       end
-      activity :a2, :call, :endpoint1
+      call :a2, :endpoint1
     end
     @wf.start.join
     wf_sassert('|running|Ca1_1Da1_1Ca1_2Da1_2Ca2Da2|finished|')
@@ -27,18 +27,18 @@ class TestWFPMultiChoice < Test::Unit::TestCase
         parallel do
           parallel_branch do
             alternative(data.x == 1) do
-              activity :a1_1, :call, :endpoint1
+              call :a1_1, :endpoint1
               Thread.pass
             end
           end
           parallel_branch do
             alternative(data.x > 0) do
-              activity :a1_2, :call, :endpoint1, :call => Proc.new{sleep 0.5}
+              call :a1_2, :endpoint1, :call => Proc.new{sleep 0.5}
             end
           end
         end
       end
-      activity :a2, :call, :endpoint1
+      call :a2, :endpoint1
     end
     @wf.start.join
     wf_assert('CALL a1_1')

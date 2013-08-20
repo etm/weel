@@ -15,18 +15,18 @@ class TestSimChoose1 < Test::Unit::TestCase
     data :persons => 3
 
     control flow do
-      activity :a0, :call, :endpoint1
+      call :a0, :endpoint1
       choose :exclusive do
         alternative data.costs > 400 do
-          activity :a11, :call, :endpoint1
-          activity :a12, :call, :endpoint1
+          call :a11, :endpoint1
+          call :a12, :endpoint1
         end
         alternative data.costs > 400 do
-          activity :a21, :call, :endpoint1
-          activity :a22, :call, :endpoint1
+          call :a21, :endpoint1
+          call :a22, :endpoint1
         end
         otherwise do
-          activity :a3, :call, :endpoint1
+          call :a3, :endpoint1
         end
       end
     end

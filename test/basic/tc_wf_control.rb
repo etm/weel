@@ -20,9 +20,9 @@ class TestWorkflowControl < Test::Unit::TestCase
 
   def test_stop
     @wf.description do
-      activity :a_test_1_1, :call, :endpoint1
-      activity :a_test_1_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
-      activity :a_test_1_3, :call, :endpoint1
+      call :a_test_1_1, :endpoint1
+      call :a_test_1_2, :endpoint1, :call => Proc.new{ sleep 0.5 }
+      call :a_test_1_3, :endpoint1
     end
     @wf.search WEEL::Position.new(:a_test_1_1, :at)
     wf = @wf.start
@@ -40,9 +40,9 @@ class TestWorkflowControl < Test::Unit::TestCase
   end
   def test_continue
     @wf.description do
-      activity :a_test_1_1, :call, :endpoint1
-      activity :a_test_1_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
-      activity :a_test_1_3, :call, :endpoint1
+      call :a_test_1_1, :endpoint1
+      call :a_test_1_2, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+      call :a_test_1_3, :endpoint1
     end
     @wf.start
     sleep(0.2)
@@ -56,9 +56,9 @@ class TestWorkflowControl < Test::Unit::TestCase
   
   def test_continue_after
     @wf.description do
-      activity :c_test_1_1, :call, :endpoint1
-      activity :c_test_1_2, :call, :endpoint1
-      activity :c_test_1_3, :call, :endpoint1
+      call :c_test_1_1, :endpoint1
+      call :c_test_1_2, :endpoint1
+      call :c_test_1_3, :endpoint1
     end
     @wf.search [WEEL::Position.new(:c_test_1_1, :after)]
     @wf.start.join

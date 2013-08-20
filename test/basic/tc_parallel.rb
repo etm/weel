@@ -8,13 +8,13 @@ class TestParallel < Test::Unit::TestCase
     @wf.description do
       parallel do
         parallel_branch do
-          activity :a_1, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+          call :a_1, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
         end
         parallel_branch do
-          activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+          call :a_2, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
         end
         parallel_branch do
-          activity :a_3, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+          call :a_3, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
         end
       end
     end
@@ -32,13 +32,13 @@ class TestParallel < Test::Unit::TestCase
     @wf.description do
       parallel :wait do
         parallel_branch do
-          activity :a_1, :call, :endpoint1, :call =>  Proc.new{ sleep 0.2 }
+          call :a_1, :endpoint1, :call =>  Proc.new{ sleep 0.2 }
         end
         parallel_branch do
-          activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+          call :a_2, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
         end
       end
-      activity :a_3, :call, :endpoint1
+      call :a_3, :endpoint1
     end
     @wf.start.join
     wf_assert('CALL a_1')
@@ -50,14 +50,14 @@ class TestParallel < Test::Unit::TestCase
     @wf.description do
       parallel :wait => 1 do
         parallel_branch do
-          activity :a_1, :call, :endpoint1
+          call :a_1, :endpoint1
           Thread.pass 
         end
         parallel_branch do
-          activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 8.5 }
+          call :a_2, :endpoint1, :call =>  Proc.new{ sleep 8.5 }
         end
       end
-      activity :a_3, :call, :endpoint1
+      call :a_3, :endpoint1
     end
     @wf.start.join
     wf_assert('CALL a_1')
@@ -68,14 +68,14 @@ class TestParallel < Test::Unit::TestCase
     @wf.description do
       parallel :wait => 1 do
         parallel_branch do
-          activity :a_1, :call, :endpoint1, :call =>  Proc.new{ sleep 0.2 }
+          call :a_1, :endpoint1, :call =>  Proc.new{ sleep 0.2 }
         end
         parallel_branch do
-          activity :a_2, :call, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
-          activity :a_2_2, :call, :endpoint1
+          call :a_2, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+          call :a_2_2, :endpoint1
         end
       end
-      activity :a_3, :call, :endpoint1
+      call :a_3, :endpoint1
     end
     @wf.start.join
     wf_assert('CALL a_1')
@@ -92,22 +92,22 @@ class TestParallel < Test::Unit::TestCase
     # |- => :a_3
     @wf.description do
       parallel :wait do
-        parallel_branch do activity :a_1, :call, :endpoint1 end
+        parallel_branch do call :a_1, :endpoint1 end
         parallel_branch do
           parallel :wait do
             parallel_branch do
               parallel :wait do
-                parallel_branch do activity :a_2_1_1, :call, :endpoint1, :call => Proc.new {sleep 0.2} end
-                parallel_branch do activity :a_2_1_2, :call, :endpoint1, :call => Proc.new {sleep 0.4}  end
+                parallel_branch do call :a_2_1_1, :endpoint1, :call => Proc.new {sleep 0.2} end
+                parallel_branch do call :a_2_1_2, :endpoint1, :call => Proc.new {sleep 0.4}  end
               end
-              activity :a_2_1_3, :call, :endpoint1, :call => Proc.new {sleep 0.8} 
+              call :a_2_1_3, :endpoint1, :call => Proc.new {sleep 0.8} 
             end
-            parallel_branch do activity :a_2_2, :call, :endpoint1, :call => Proc.new {sleep 0.8}  end
-            parallel_branch do activity :a_2_3, :call, :endpoint1, :call => Proc.new {sleep 1.0}  end
+            parallel_branch do call :a_2_2, :endpoint1, :call => Proc.new {sleep 0.8}  end
+            parallel_branch do call :a_2_3, :endpoint1, :call => Proc.new {sleep 1.0}  end
           end
         end
       end
-      activity :a_3, :call, :endpoint1
+      call :a_3, :endpoint1
     end
     @wf.start.join
     nump = $long_track.split("\n").delete_if{|e| !(e =~ /^(DONE)/)}

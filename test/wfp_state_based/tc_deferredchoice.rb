@@ -9,23 +9,23 @@ class TestWFPDeferredChoice < Test::Unit::TestCase
     @wf.description do
       parallel :wait=>1 do
         parallel_branch do
-          activity :a1_1, :call, :endpoint1, :call => Proc.new{sleep 0.5} do
+          call :a1_1, :endpoint1, :call => Proc.new{sleep 0.5} do
             data.choice = 1
           end
           Thread.pass
         end
         parallel_branch do
-          activity(:a1_2, :call, :endpoint1, :call => Proc.new{sleep 1.0}) do
+          call(:a1_2, :endpoint1, :call => Proc.new{sleep 1.0}) do
             data.choice = 2
           end
         end
       end
       choose do
         alternative(data.choice == 1) do
-          activity :a2_1, :call, :endpoint1
+          call :a2_1, :endpoint1
         end
         alternative(data.choice == 2) do
-          activity :a2_2, :call, :endpoint1
+          call :a2_2, :endpoint1
         end
       end
     end

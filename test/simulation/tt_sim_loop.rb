@@ -16,11 +16,11 @@ class TestSimLoop < Test::Unit::TestCase
 
     control flow do
       loop pre_test{data.persons > 0} do
-        activity :a1, :call, :endpoint1 do
+        call :a1, :endpoint1 do
           data.hotels << 'Rathaus'
           data.costs += 200
         end
-        activity :a2, :call, :endpoint1 do
+        call :a2, :endpoint1 do
           data.hotels << 'Rathaus'
           data.costs += 200
         end
