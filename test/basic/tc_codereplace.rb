@@ -17,13 +17,13 @@ class TestCodeReplace < Test::Unit::TestCase
     wf_assert("CALL a_test_1_3:")
     wf_sassert("|running|Ca_test_1_1Da_test_1_1Ca_test_1_2Da_test_1_2Ca_test_1_3Da_test_1_3|finished|")
   end
-  #def test_wfdescription_string
-  #  ret = @wf.description "call :b_test_1_1, :endpoint1"
-  #  @wf.search WEEL::Position.new(:b_test_1_1, :at)
-  #  @wf.start.join
-  #  wf_assert("DONE b_test_1_1")
-  #  wf_sassert("|running|Cb_test_1_1Db_test_1_1|finished|")
-  #end
+  def test_wfdescription_string
+    ret = @wf.description = "call :b_test_1_1, :endpoint1"
+    @wf.search WEEL::Position.new(:b_test_1_1, :at)
+    @wf.start.join
+    wf_assert("DONE b_test_1_1")
+    wf_sassert("|running|Cb_test_1_1Db_test_1_1|finished|")
+  end
   def test_wfdescription_block
     ret = @wf.description do
       call :c_test_1_1, :endpoint1
