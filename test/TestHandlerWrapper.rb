@@ -85,4 +85,11 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
     $long_track += "---> STATE #{newstate}\n"
     $short_track << "|#{newstate}|"
   end
+
+  def manipulate(mr,code,result=nil,status=nil)
+    mr.instance_eval(code)
+  end
+  def test_condition(mr,code)
+    mr.instance_eval(code)
+  end
 end
