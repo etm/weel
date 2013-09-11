@@ -208,8 +208,8 @@ class WEEL
 
     def callback(result); end
 
-    def test_condition(code); true; end
-    def manipulate(mr,code,result=nil,status=nil); nil; end
+    def test_condition(code); eval(code); end
+    def manipulate(mr,code,result=nil,status=nil); mr.instance_exec(result,code); end
   end  # }}}
 
   class Position # {{{
