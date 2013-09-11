@@ -178,7 +178,7 @@ class WEEL
   class HandlerWrapperBase # {{{
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
 
-    def activity_handle(passthrough, endpoint, parameters); end
+    def activity_handle(passthrough, parameters); end
 
     def activity_result_value; end
     def activity_result_status; end
@@ -197,7 +197,7 @@ class WEEL
     def inform_position_change(ipc); end
     def inform_state_change(newstate); end
     
-    def vote_sync_before; true; end
+    def vote_sync_before(parameters=nil); true; end
     def vote_sync_after; true; end
 
     # type       => activity, loop, parallel, choice
@@ -556,19 +556,15 @@ class WEEL
         # searchmode position is after, jump directly to vote_sync_after
         raise Signal::Proceed if searchmode == :after
 
-        raise Signal::Stop unless handlerwrapper.vote_sync_before
-
         case type
           when :manipulate
+            raise Signal::Stop unless handlerwrapper.vote_sync_before
+
             if code.is_a?(Proc) || code.is_a?(String)
               handlerwrapper.inform_activity_manipulate
               if code.is_a?(Proc)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case code.arity
-                  when 1; mr.instance_exec(parameters,&code)
-                  else
-                    mr.instance_eval(&code)
-                end
+                mr.instance_eval(&code)
               elsif code.is_a?(String)  
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 handlerwrapper.manipulate(mr,code)
@@ -584,7 +580,6 @@ class WEEL
             end  
           when :call
             params = { }
-            passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
             case parameters 
               when String
                 code = parameters
@@ -610,6 +605,9 @@ class WEEL
               else  
                 raise("invalid parameters")
             end
+            raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
+
+            passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
             # handshake call and wait until it finished
             handlerwrapper.activity_handle passthrough, params
             Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
