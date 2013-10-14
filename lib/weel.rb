@@ -99,11 +99,11 @@ class WEEL
     attr_reader :changed_data, :changed_endpoints
 
     def original_data
-      @weel_data
+      @__weel_data
     end
 
     def original_endpoints
-      @weel_endpoints
+      @__weel_endpoints
     end
 
     def changed_status
