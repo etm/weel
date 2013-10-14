@@ -98,6 +98,14 @@ class WEEL
 
     attr_reader :changed_data, :changed_endpoints
 
+    def original_data
+      @weel_data
+    end
+
+    def original_endpoints
+      @weel_endpoints
+    end
+
     def changed_status
       @changed_status != status.id
     end
