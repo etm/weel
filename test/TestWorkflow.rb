@@ -7,6 +7,7 @@ class TestWorkflow < WEEL
 
   endpoint :endpoint1 => 'http://www.heise.de'
   endpoint :stop => 'stop it'
+  endpoint :again => 'again'
   data :x => 'begin_'
   
   control flow do

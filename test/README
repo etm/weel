@@ -1,0 +1,7 @@
+basic              ... Basic WEEL tests
+complex            ... Complex WEEL tests
+exec               ... Different Activity types
+wfp_basic          ... Basic Van der Aalst WF patterns
+wfp_iteration      ... Iteration related Van der Aalst WF patterns
+wfp_state_based    ... State Based Van der Aalst WF patterns
+wfp_adv_branching  ... Advanced Branching Van der Aalst WF patterns

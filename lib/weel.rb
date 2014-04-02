@@ -69,6 +69,7 @@ class WEEL
     class Stop < Exception; end
     class Proceed < Exception; end
     class NoLongerNecessary < Exception; end
+    class Again < Exception; end
   end # }}}
 
   class ReadStructure # {{{
@@ -234,6 +235,9 @@ class WEEL
      end  
      def continue
        @q.push nil
+     end
+     def clear
+      @q.clear
      end
      def wait
        @q.deq
@@ -608,40 +612,48 @@ class WEEL
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
 
             passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
-            # handshake call and wait until it finished
-            handlerwrapper.activity_handle passthrough, params
-            Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
-
-            if Thread.current[:nolongernecessary]
-              handlerwrapper.activity_no_longer_necessary 
-              raise Signal::NoLongerNecessary
-            end  
-            if self.__weel_state == :stopping
-              handlerwrapper.activity_stop
-              wp.passthrough = handlerwrapper.activity_passthrough_value
-            end  
-
-            if wp.passthrough.nil? && (code.is_a?(Proc) || code.is_a?(String))
-              handlerwrapper.inform_activity_manipulate
-              status = handlerwrapper.activity_result_status
-              if code.is_a?(Proc)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                case code.arity
-                  when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                  when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
-                  else
-                    mr.instance_eval(&code)
-                end  
-              elsif code.is_a?(String)  
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
+            begin
+              # with loop if catch Signal::Again
+              begin
+                # handshake call and wait until it finished
+                handlerwrapper.activity_handle passthrough, params
+                Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
+                again = false
+              rescue Signal::Again
+                again = true
               end
-              handlerwrapper.inform_manipulate_change(
-                (mr.changed_status ? @__weel_status : nil), 
-                (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
-              )
-            end
+
+              if Thread.current[:nolongernecessary]
+                handlerwrapper.activity_no_longer_necessary 
+                raise Signal::NoLongerNecessary
+              end  
+              if self.__weel_state == :stopping
+                handlerwrapper.activity_stop
+                wp.passthrough = handlerwrapper.activity_passthrough_value
+              end  
+
+              if wp.passthrough.nil? && (code.is_a?(Proc) || code.is_a?(String))
+                handlerwrapper.inform_activity_manipulate
+                status = handlerwrapper.activity_result_status
+                if code.is_a?(Proc)
+                  mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                  case code.arity
+                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
+                    else
+                      mr.instance_eval(&code)
+                  end  
+                elsif code.is_a?(String)  
+                  mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
+                end
+                handlerwrapper.inform_manipulate_change(
+                  (mr.changed_status ? @__weel_status : nil), 
+                  (mr.changed_data.any? ? mr.changed_data.uniq : nil),
+                  (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
+                )
+              end
+            end while wp.passthrough.nil? && again
             if wp.passthrough.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
@@ -664,6 +676,8 @@ class WEEL
       rescue => err
         handlerwrapper.inform_activity_failed err
         self.__weel_state = :stopping
+      ensure
+        Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
       end
     end # }}}
 
