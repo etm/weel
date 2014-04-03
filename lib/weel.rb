@@ -636,6 +636,7 @@ class WEEL
               if self.__weel_state == :stopping
                 handlerwrapper.activity_stop
                 wp.passthrough = handlerwrapper.activity_passthrough_value
+                raise Signal::Proceed
               end  
 
               if wp.passthrough.nil? && (code.is_a?(Proc) || code.is_a?(String))
