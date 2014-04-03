@@ -19,7 +19,7 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
     if @__myhandler_endpoint == 'again'
       @__myhandler_returnValue = parameters.has_key?(:result) ? parameters[:result] : 'Handler_Dummy_Result'
       if parameters[:call].call 
-        raise WEEL::Signal::Again  
+        @__myhandler_continue.continue WEEL::Signal::Again  
       else
         @__myhandler_continue.continue 
       end  

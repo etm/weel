@@ -241,8 +241,8 @@ class WEEL
          !@q.empty?
        end  
      end  
-     def continue
-       @q.push nil
+     def continue(what=nil)
+       @q.push what
      end
      def clear
       @q.clear
@@ -621,15 +621,13 @@ class WEEL
 
             passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
             begin
-              # with loop if catch Signal::Again
-              begin
-                # handshake call and wait until it finished
-                handlerwrapper.activity_handle passthrough, params
-                Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
-                again = false
-              rescue Signal::Again
-                again = true
-              end
+              # with loop if catching Signal::Again
+              # handshake call and wait until it finished
+
+              handlerwrapper.activity_handle passthrough, params
+              waitingresult = nil
+              waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
+              raise waitingresult if !waitingresult.nil? && waitingresult.is_a?(Signal::Again)
 
               if Thread.current[:nolongernecessary]
                 handlerwrapper.activity_no_longer_necessary 
@@ -661,7 +659,7 @@ class WEEL
                   (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
                 )
               end
-            end while wp.passthrough.nil? && again
+            end while wp.passthrough.nil? && waitingresult == Signal::Again
             if wp.passthrough.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
