@@ -629,7 +629,7 @@ class WEEL
               waitingresult = nil
               waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
               raise waitingresult if !waitingresult.nil? && waitingresult.is_a?(Signal::Again)
-              raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0].is_a?(Signal::Error)
+              raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
 
               if Thread.current[:nolongernecessary]
                 handlerwrapper.activity_no_longer_necessary 
