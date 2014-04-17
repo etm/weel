@@ -242,8 +242,8 @@ class WEEL
          !@q.empty?
        end  
      end  
-     def continue(what=nil)
-       @q.push what
+     def continue(*args)
+       @q.push(args.length <= 1 ? args[0] : args)
      end
      def clear
       @q.clear
