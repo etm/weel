@@ -401,7 +401,14 @@ class WEEL
           handlerwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
         end
 
-        yield(*local)
+        begin
+          yield(*local)
+        rescue => err
+          self.__weel_state = :stopping
+          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+          handlerwrapper.inform_syntax_error(err,nil)
+          Thread.pass
+        end
 
         __weel_sim_stop(:parallel_branch,handlerwrapper,current_branch_sim_pos) if __weel_sim
 
