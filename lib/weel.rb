@@ -785,11 +785,12 @@ class WEEL
     end
 
     def __weel_state=(newState)# {{{
-      return @__weel_state if newState == @__weel_state
-      @__weel_positions = Array.new if @__weel_state != newState && newState == :running
-      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
+      return @__weel_state if newState == @__weel_state && @__weel_state != :ready
+
+      @__weel_positions = Array.new if newState == :running
       @__weel_state = newState
 
+      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
       if newState == :stopping
         __weel_recursive_continue(@__weel_main)
       end
