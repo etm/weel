@@ -463,7 +463,7 @@ class WEEL
         return if Thread.current[:alternative_mode] == :exclusive && Thread.current[:alternative_executed][-1] = true
         if condition.is_a?(String) && !__weel_sim
           handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-          condition = handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),__condition)
+          condition = handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end  
