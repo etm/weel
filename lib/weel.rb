@@ -49,13 +49,6 @@ class WEEL
     @dslr = DSLRealization.new
     @dslr.__weel_handlerwrapper_args = args
       
-    ### 1.8
-    initialize_search if methods.include?('initialize_search')
-    initialize_data if methods.include?('initialize_data')
-    initialize_endpoints if methods.include?('initialize_endpoints')
-    initialize_handlerwrapper if methods.include?('initialize_handlerwrapper')
-    initialize_control if methods.include?('initialize_control')
-    ### 1.9
     initialize_search if methods.include?(:initialize_search)
     initialize_data if methods.include?(:initialize_data)
     initialize_endpoints if methods.include?(:initialize_endpoints)
@@ -203,7 +196,7 @@ class WEEL
     def inform_activity_failed(err); end
 
     def inform_syntax_error(err,code); end
-    def inform_manipulate_change(status,data,endpoints); end
+    def inform_manipulate_change(status,changed_data,changed_endpoints,data,endpoints); end
     def inform_position_change(ipc); end
     def inform_state_change(newstate); end
     
@@ -592,7 +585,9 @@ class WEEL
               handlerwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil), 
                 ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
-                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil)
+                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil),
+                @__weel_data,
+                @__weel_endpoints
               )
               handlerwrapper.inform_activity_done
               wp.detail = :after
@@ -666,7 +661,9 @@ class WEEL
                 handlerwrapper.inform_manipulate_change(
                   (mr.changed_status ? @__weel_status : nil), 
                   (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                  (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil)
+                  (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
+                  @__weel_data,
+                  @__weel_endpoints
                 )
               end
             end while wp.passthrough.nil? && waitingresult == Signal::Again
