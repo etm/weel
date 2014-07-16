@@ -211,7 +211,7 @@ class WEEL
 
     def callback(result); end
 
-    def test_condition(code); eval(code); end
+    def test_condition(mr,code); eval(code); end
     def manipulate(mr,code,result=nil,status=nil); mr.instance_eval(code); end
   end  # }}}
 
