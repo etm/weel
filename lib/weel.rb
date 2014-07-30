@@ -167,6 +167,10 @@ class WEEL
       @__weel_values = values
     end
 
+    def to_json(*args)
+      @__weel_values.to_json(*args)
+    end
+
     def method_missing(name,*args)
       temp = nil
       if args.empty? && @__weel_values.has_key?(name)
@@ -527,7 +531,7 @@ class WEEL
     end # }}}
 
   private
-    def __weel_activity(position, type, endpoint, parameters, code)# {{{
+    def __weel_activity(position, type, endpoints, parameters, code)# {{{
       position = __weel_position_test position
       begin
         searchmode = __weel_is_in_search_mode(position)
@@ -535,10 +539,10 @@ class WEEL
         return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, @__weel_endpoints[endpoint], position, Thread.current[:continue]
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters, :endpoint => endpoint, :type => type)
+          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters,:endpoints => endpoints,:type => type)
           return
         end
 
