@@ -835,6 +835,10 @@ public
   def state # {{{
     @dslr.__weel_state
   end #  }}}
+  def state_signal # {{{
+    handlerwrapper.new(handlerwrapper_args).inform_state_change(state)
+    state
+  end #  }}}
 
   # Set search positions
   # set new_weel_search to a boolean (or anything else) to start the process from beginning (reset serach positions)
