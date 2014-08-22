@@ -211,7 +211,7 @@ class WEEL
     # nesting    => none, start, end
     # eid        => id's also for control structures
     # parameters => stuff given to the control structure
-    def simulate(type,nesting,eid,parent,parameters={}); end
+    def simulate(type,nesting,sequence,parent,parameters={}); end
 
     def callback(result); end
 
@@ -542,7 +542,8 @@ class WEEL
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,position,Thread.current[:branch_sim_pos],:parameters=>parameters,:endpoints => endpoints,:type => type)
+          Thread.current[:branch_sim_pos] = @__weel_sim += 1
+          handlerwrapper.simulate(:activity,:none,Thread.current[:branch_sim_pos],Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type)
           return
         end
 
