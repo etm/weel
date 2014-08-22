@@ -331,7 +331,7 @@ class WEEL
 
       yield
 
-      Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer)) ? type[:wait] : Thread.current[:branches].size)
+      Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       Thread.current[:branches].each do |thread| 
         while thread.status != 'sleep' && thread.alive?
           Thread.pass
