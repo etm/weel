@@ -542,8 +542,7 @@ class WEEL
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
-          Thread.current[:branch_sim_pos] = @__weel_sim += 1
-          handlerwrapper.simulate(:activity,:none,Thread.current[:branch_sim_pos],Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type)
+          handlerwrapper.simulate(:activity,:none,Thread.current[:branch_sim_pos],@__weel_sim += 1,:position => position,:parameters => parameters,:endpoints => endpoints,:type => type)
           return
         end
 
