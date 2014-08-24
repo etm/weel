@@ -452,9 +452,9 @@ class WEEL
     # Defines a possible choice of a choose-Construct
     # Block is executed if condition == true or
     # searchmode is active (to find the starting position)
-    def alternative(condition)# {{{
+    def alternative(condition,args={})# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:alternative,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode])) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode] == :exclusive && Thread.current[:alternative_executed][-1] = true
@@ -465,13 +465,13 @@ class WEEL
         Thread.current[:alternative_executed][-1] = true if condition
       end  
       yield if __weel_is_in_search_mode || __weel_sim || condition
-      __weel_sim_stop(:alternative,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode])) if __weel_sim
     end # }}}
-    def otherwise # {{{
+    def otherwise(args={}) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:otherwise,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      hw, pos = __weel_sim_start(:otherwise,args.merge(:mode => Thread.current[:alternative_mode])) if __weel_sim
       yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
-      __weel_sim_stop(:otherwise,hw,pos,:mode => Thread.current[:alternative_mode]) if __weel_sim
+      __weel_sim_stop(:otherwise,hw,pos,args.merge(:mode => Thread.current[:alternative_mode])) if __weel_sim
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -489,8 +489,8 @@ class WEEL
     end # }}}
 
     # Defines a Cycle (loop/iteration)
-    def loop(condition)# {{{ 
-      unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1])
+    def loop(condition,args={})# {{{ 
+      unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
@@ -499,9 +499,9 @@ class WEEL
         return if __weel_is_in_search_mode
       end  
       if __weel_sim
-        hw, pos = __weel_sim_start(:loop,:testing=>condition[1])
+        hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1]))
         yield
-        __weel_sim_stop(:loop,hw,pos,:testing=>condition[1])
+        __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1]))
         return
       end
       handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition[0].is_a?(Proc)
