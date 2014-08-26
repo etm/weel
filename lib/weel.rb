@@ -499,7 +499,7 @@ class WEEL
         return if __weel_is_in_search_mode
       end  
       if __weel_sim
-        cond = condition[0].is_a?(Proc) ? condition[0].call : condition[0]
+        cond = condition[0].is_a?(Proc) ? true : condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
         yield
         __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
