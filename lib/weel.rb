@@ -163,8 +163,9 @@ class WEEL
   end #}}}
   
   class ReadHash # {{{
-    def initialize(values)
+    def initialize(values,sim=false)
       @__weel_values = values
+      @__weel_sim = sim
     end
 
     def to_json(*args)
@@ -172,9 +173,12 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      temp = nil
       if args.empty? && @__weel_values.has_key?(name)
-        @__weel_values[name] 
+        if @__weel_sim
+          "➤#{name}"
+        else
+          @__weel_values[name] 
+        end  
         #TODO dont let user change stuff e.g. if return value is an array (deep clone and/or deep freeze it?)
       else
         nil
@@ -525,7 +529,7 @@ class WEEL
       @__weel_status
     end # }}}
     def data # {{{
-      ReadHash.new(@__weel_data)
+      ReadHash.new(@__weel_data,__weel_sim)
     end # }}}
     def endpoints # {{{
       ReadHash.new(@__weel_endpoints)
