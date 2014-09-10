@@ -474,6 +474,8 @@ class WEEL
       __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
     end # }}}
     def otherwise(args={}) # {{{
+      p 'rrrr'
+      sleep 1
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       hw, pos = __weel_sim_start(:otherwise,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
       yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
@@ -512,11 +514,17 @@ class WEEL
         return
       end
       handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition[0].is_a?(Proc)
-      case condition[1]
-        when :pre_test
-          yield while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
-        when :post_test
-          begin; yield; end while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
+      catch :escape do
+        case condition[1]
+          when :pre_test
+            while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
+              yield
+            end  
+          when :post_test
+            begin
+              yield
+            end while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
+        end
       end
     end # }}}
 
@@ -526,6 +534,8 @@ class WEEL
     def post_test(code=nil,&blk)# {{{
       [code || blk, :post_test]
     end # }}}
+
+    def escape; throw :escape; end
 
     def status # {{{
       @__weel_status
