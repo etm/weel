@@ -474,8 +474,6 @@ class WEEL
       __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
     end # }}}
     def otherwise(args={}) # {{{
-      p 'rrrr'
-      sleep 1
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       hw, pos = __weel_sim_start(:otherwise,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
       yield if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
