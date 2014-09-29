@@ -501,13 +501,17 @@ class WEEL
       end
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       if __weel_is_in_search_mode
-        yield
+        catch :escape do
+          yield
+        end
         return if __weel_is_in_search_mode
       end  
       if __weel_sim
         cond = condition[0].is_a?(Proc) ? true : condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
-        yield
+        catch :escape do
+          yield
+        end
         __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
         return
       end
