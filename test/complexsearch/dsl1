@@ -1,0 +1,37 @@
+manipulate :a8, <<-end 
+data.machine_id = 1;data.machine_started = null;data.machine_stopped = null;data.downtime = 0;data.planned_production_time = 0.8;data.ideal_cycle_time = 3;data.repairing = false;data.quality = 0;data.performance = 0;data.availability = 0;data.oee = 0;data.good_pieces = 0;data.total_pieces = 0;
+end
+parallel :wait => -1 do
+  parallel_branch do
+    loop pre_test("true"), :sim_probability1 => "100", :sim_repetition1 => "100", :sim_probability2 => "100", :sim_repetition2 => "100" do
+      call :a2, [:TennecoUKLtd_StatusUpdate, :CatsPipesLtd_GetData, :Fauxrezia_GetData], { :label => "Get Start/Stop Machine", :type => :smartobject, :mid => "_833D2856-00AA-4FCC-B5E4-34FB9D4841C0", :parameters => {:SENSORID => "1", :OWNERID => "Tenneco"} }, <<-end 
+      end
+    end
+  end
+  parallel_branch do
+    loop pre_test("true"), :sim_probability1 => "100", :sim_repetition1 => "100", :sim_probability2 => "100", :sim_repetition2 => "100" do
+      call :a3, :ADVENTURE_TIMER, { :label => "", :type => :timer, :mid => "_74416C25-D338-4128-970F-0C306392A4A0", :parameters => {:sleep => "20 seconds"} }
+      call :a9, [:TennecoUKLtd_GetMachineData, :CatsPipesLtd_GetData, :Fauxrezia_GetData], { :label => "Get Total Pieces", :type => :externalManufacturingTask, :sim_min_time => "1m", :sim_max_time => "1m", :sim_avg_time => "1m", :mid => "_E2373D1C-22DC-4B32-9C57-177F8A2FEAE6", :parameters => {:DataName => "TOTALPIECES|GOODPIECES", :MachineID => data.machine_id} }, <<-end 
+      end
+      manipulate :a4, <<-end 
+      end
+      manipulate :a5, <<-end 
+      end
+      call :a14, [:TennecoUKLtd_SetData, :CatsPipesLtd_GetData, :Fauxrezia_GetData], { :label => "Send OEE Value", :type => :externalManufacturingTask, :sim_min_time => "1m", :sim_max_time => "1m", :sim_avg_time => "1m", :mid => "_14303077-E2E2-4D8D-A3BB-D66043B59D6B", :parameters => {:Data => data.oeedata} }
+      choose :exclusive do
+        alternative "true", :sim_probability => "100" do
+          manipulate :a13, <<-end 
+            sleep 0.5
+          end
+          call :a11, :MailCO_mail, { :label => "Send Email to Tenneco Engineer", :type => :externalManufacturingTask, :sim_min_time => "1m", :sim_max_time => "1m", :sim_avg_time => "1m", :mid => "_65C98468-7A0F-41F4-B880-38FB39823059", :parameters => {:to => "sbhullar@control2k.co.uk,juergen.mangler@univie.ac.at", :subject => "OEE Problem for Machine {{ machineid }}", :body => "Machine {{ machineid }} has an OEE Value of {{ \"%0.2f\" % oee }}", :data => data.oeedata} }
+          call :a10, :ADVENTURE_SPAWN, { :label => "Spawn OEE Crowdsourcing Subprocess", :type => :spawn, :mid => "_6123616C-237A-4C94-982C-4C834FE927CB", :parameters => {:instance => "53be982de4b0207100d22648", :data_machine_id => data.machine_id, :data_oee => data.oee, :data_machine_started => data.machine_started} }
+          call :a12, :ADVENTURE_CORRELATION_INTERNAL_MESSAGE_receive, { :label => "Machine Fixed, Status no longer REPAIR", :type => :internalmessage, :mid => "_D6FC1A48-3FA5-44FE-8294-1A88A28D3069", :parameters => {:internal => "repairmachine", :machine_id => data.machine_id} }, <<-end 
+            raise WEEL::Signal::Stop
+          end
+        end
+        otherwise :sim_probability => "100" do
+        end
+      end
+    end
+  end
+end

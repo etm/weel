@@ -2,7 +2,7 @@
 -----
 
 * Ruby >= 1.9.3 only, use Queue instead of Threads and Mutexes of Weel::Continue
-* LGPL-3 to achive Aapache 2 compatibility
+* LGPL-3 to achive Apache 2 compatibility
 * Raise Weel::Signal::Again in HandlerWrapper, to trigger Manipulation and then
 redo the activity. HandlerWrapper is not discarded inbetween, so it is possible
 to continue receiving multiple callbacks. Basically sequential multi instance

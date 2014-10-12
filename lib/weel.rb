@@ -338,16 +338,17 @@ class WEEL
       yield
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
+      1.upto Thread.current[:branches].size do
+        Thread.current[:branch_event].wait
+      end  
+
       Thread.current[:branches].each do |thread| 
-        while thread.status != 'sleep' && thread.alive?
-          Thread.pass
-        end
         # decide after executing block in parallel cause for coopis
         # it goes out of search mode while dynamically counting branches
         if Thread.current[:branch_search] == false
           thread[:branch_search] = false
         end  
-        thread.wakeup if thread.alive?
+        thread[:start_event].continue
       end
 
       Thread.current[:branch_event].wait
@@ -380,24 +381,23 @@ class WEEL
       end  
 
       Thread.current[:branches] << Thread.new(*vars) do |*local|
-        branch_parent[:mutex].synchronize do
-          Thread.current.abort_on_exception = true
-          Thread.current[:branch_status] = false
-          Thread.current[:branch_parent] = branch_parent
+        Thread.current.abort_on_exception = true
+        Thread.current[:branch_status] = false
+        Thread.current[:branch_parent] = branch_parent
+        Thread.current[:start_event] = Continue.new
 
-          if __weel_sim
-            Thread.current[:branch_sim_pos] = @__weel_sim += 1
-          end  
-
-          # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
-          # after branching, update it in the parent (TODO)
-          if branch_parent[:alternative_executed] && branch_parent[:alternative_executed].length > 0
-            Thread.current[:alternative_executed] = [branch_parent[:alternative_executed].last]
-            Thread.current[:alternative_mode] = [branch_parent[:alternative_mode].last]
-          end
+        if __weel_sim
+          Thread.current[:branch_sim_pos] = @__weel_sim += 1
         end  
 
-        Thread.stop
+        # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
+        # after branching, update it in the parent (TODO)
+        if branch_parent[:alternative_executed] && branch_parent[:alternative_executed].length > 0
+          Thread.current[:alternative_executed] = [branch_parent[:alternative_executed].last]
+          Thread.current[:alternative_mode] = [branch_parent[:alternative_mode].last]
+        end
+        branch_parent[:branch_event].continue
+        Thread.current[:start_event].wait
 
         if __weel_sim
           handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
