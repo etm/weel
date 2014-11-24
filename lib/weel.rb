@@ -19,7 +19,7 @@ require 'thread'
 # OMG!111! strings have to be emptied
 class String # {{{
   def clear
-      self.slice!(0..-1)
+    self.slice!(0..-1)
   end
 end # }}}
 
