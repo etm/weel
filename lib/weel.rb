@@ -1,15 +1,15 @@
 # encoding: utf-8
 #
 # This file is part of WEEL.
-# 
+#
 # WEEL is free software: you can redistribute it and/or modify it under the terms
 # of the GNU General Public License as published by the Free Software Foundation,
 # either version 3 of the License, or (at your option) any later version.
-# 
+#
 # WEEL is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along with
 # WEEL (file COPYING in the main directory).  If not, see
 # <http://www.gnu.org/licenses/>.
@@ -50,7 +50,7 @@ class WEEL
   def initialize(*args)# {{{
     @dslr = DSLRealization.new
     @dslr.__weel_handlerwrapper_args = args
-      
+
     initialize_search if methods.include?(:initialize_search)
     initialize_data if methods.include?(:initialize_data)
     initialize_endpoints if methods.include?(:initialize_endpoints)
@@ -127,7 +127,7 @@ class WEEL
       if @__weel_values.has_key?(value)
         @__weel_what << value
         @__weel_values.delete(value)
-      end  
+      end
     end
 
     def clear
@@ -137,13 +137,13 @@ class WEEL
 
     def method_missing(name,*args)
       if args.empty? && @__weel_values.has_key?(name)
-        @__weel_values[name] 
+        @__weel_values[name]
       elsif name.to_s[-1..-1] == "=" && args.length == 1
         temp = name.to_s[0..-2]
         @__weel_what << temp.to_sym
         @__weel_values[temp.to_sym] = args[0]
-      elsif name.to_s == "[]=" && args.length == 2  
-        @__weel_values[args[0]] = args[1] 
+      elsif name.to_s == "[]=" && args.length == 2
+        @__weel_values[args[0]] = args[1]
       elsif name.to_s == "[]" && args.length == 1
         @__weel_values[args[0]]
       else
@@ -163,7 +163,7 @@ class WEEL
     end
     attr_reader :id, :message
   end #}}}
-  
+
   class ReadHash # {{{
     def initialize(values,sim=false)
       @__weel_values = values
@@ -179,8 +179,8 @@ class WEEL
         if @__weel_sim
           "➤#{name}"
         else
-          @__weel_values[name] 
-        end  
+          @__weel_values[name]
+        end
         #TODO dont let user change stuff e.g. if return value is an array (deep clone and/or deep freeze it?)
       else
         nil
@@ -209,7 +209,7 @@ class WEEL
     def inform_manipulate_change(status,changed_data,changed_endpoints,data,endpoints); end
     def inform_position_change(ipc); end
     def inform_state_change(newstate); end
-    
+
     def vote_sync_before(parameters=nil); true; end
     def vote_sync_after; true; end
 
@@ -239,12 +239,12 @@ class WEEL
      def initialize
        @q = Queue.new
        @m = Mutex.new
-     end  
+     end
      def waiting?
        @m.synchronize do
          !@q.empty?
-       end  
-     end  
+       end
+     end
      def continue(*args)
        @q.push(args.length <= 1 ? args[0] : args)
      end
@@ -257,7 +257,7 @@ class WEEL
    end #}}}
 
   def self::search(weel_search)# {{{
-    define_method :initialize_search do 
+    define_method :initialize_search do
       self.search weel_search
     end
   end # }}}
@@ -280,11 +280,11 @@ class WEEL
     end
   end # }}}
   def self::handlerwrapper(aClassname, *args)# {{{
-    define_method :initialize_handlerwrapper do 
+    define_method :initialize_handlerwrapper do
       self.handlerwrapper = aClassname
       self.handlerwrapper_args = args unless args.empty?
     end
-  end # }}} 
+  end # }}}
   def self::control(flow, &block)# {{{
     @@__weel_control_block = block
     define_method :initialize_control do
@@ -317,11 +317,11 @@ class WEEL
     # parameters: (only with :call) service parameters
     def call(position, endpoint, parameters={}, final=nil, update=nil, &blk)
       __weel_activity(position,:call,endpoint,parameters,final||blk,update)
-    end  
+    end
     def manipulate(position, final=nil, &blk)
       __weel_activity(position,:manipulate,nil,{},final||blk,nil)
-    end  
-    
+    end
+
     # Parallel DSL-Construct
     # Defines Workflow paths that can be executed parallel.
     # May contain multiple branches (parallel_branch)
@@ -340,14 +340,14 @@ class WEEL
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       1.upto Thread.current[:branches].size do
         Thread.current[:branch_event].wait
-      end  
+      end
 
-      Thread.current[:branches].each do |thread| 
+      Thread.current[:branches].each do |thread|
         # decide after executing block in parallel cause for coopis
         # it goes out of search mode while dynamically counting branches
         if Thread.current[:branch_search] == false
           thread[:branch_search] = false
-        end  
+        end
         thread[:start_event].continue
       end
 
@@ -357,14 +357,14 @@ class WEEL
 
       unless self.__weel_state == :stopping || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
-        Thread.current[:branches].each do |thread| 
-          if thread.alive? 
+        Thread.current[:branches].each do |thread|
+          if thread.alive?
             thread[:nolongernecessary] = true
             __weel_recursive_continue(thread)
-          end  
+          end
         end
         # wait for all
-        Thread.current[:branches].each do |thread| 
+        Thread.current[:branches].each do |thread|
           __weel_recursive_join(thread)
         end
       end
@@ -378,7 +378,7 @@ class WEEL
       if __weel_sim
         # catch the potential execution in loops inside a parallel
         current_branch_sim_pos = branch_parent[:branch_sim_pos]
-      end  
+      end
 
       Thread.current[:branches] << Thread.new(*vars) do |*local|
         Thread.current.abort_on_exception = true
@@ -388,7 +388,7 @@ class WEEL
 
         if __weel_sim
           Thread.current[:branch_sim_pos] = @__weel_sim += 1
-        end  
+        end
 
         # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
         # after branching, update it in the parent (TODO)
@@ -420,8 +420,8 @@ class WEEL
           branch_parent[:branch_finished_count] += 1
           if branch_parent[:branch_finished_count] == branch_parent[:branch_wait_count] && self.__weel_state != :stopping
             branch_parent[:branch_event].continue
-          end  
-        end  
+          end
+        end
         if self.__weel_state != :stopping && self.__weel_state != :stopped
           if Thread.current[:branch_position]
             @__weel_positions.delete Thread.current[:branch_position]
@@ -432,8 +432,8 @@ class WEEL
               handlerwrapper.inform_position_change(ipc)
             end rescue nil
             Thread.current[:branch_position] = nil
-          end  
-        end  
+          end
+        end
       end
       Thread.pass
     end # }}}
@@ -469,7 +469,7 @@ class WEEL
           condition = handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
         end
         Thread.current[:alternative_executed][-1] = true if condition
-      end  
+      end
       yield if __weel_is_in_search_mode || __weel_sim || condition
       __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
     end # }}}
@@ -495,7 +495,7 @@ class WEEL
     end # }}}
 
     # Defines a Cycle (loop/iteration)
-    def loop(condition,args={})# {{{ 
+    def loop(condition,args={})# {{{
       unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
         raise "condition must be called pre_test{} or post_test{}"
       end
@@ -505,7 +505,7 @@ class WEEL
           yield
         end
         return if __weel_is_in_search_mode
-      end  
+      end
       if __weel_sim
         cond = condition[0].is_a?(Proc) ? true : condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
@@ -521,7 +521,7 @@ class WEEL
           when :pre_test
             while (condition[0].is_a?(Proc) ? condition[0].call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition[0])) && self.__weel_state != :stopping && self.__weel_state != :stopped
               yield
-            end  
+            end
           when :post_test
             begin
               yield
@@ -569,18 +569,18 @@ class WEEL
         if searchmode == :after
           wp = WEEL::Position.new(position, :after, nil)
           ipc[:after] = [wp.position]
-        else  
+        else
           if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
             @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
             ipc[:unmark] ||= []
             ipc[:unmark] << Thread.current[:branch_parent][:branch_position].position rescue nil
             Thread.current[:branch_parent][:branch_position] = nil
-          end  
+          end
           if Thread.current[:branch_position]
             @__weel_positions.delete Thread.current[:branch_position]
             ipc[:unmark] ||= []
             ipc[:unmark] << Thread.current[:branch_position].position rescue nil
-          end  
+          end
           wp = WEEL::Position.new(position, :at, nil)
           ipc[:at] = [wp.position]
         end
@@ -601,12 +601,12 @@ class WEEL
               if final.is_a?(Proc)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 mr.instance_eval(&final)
-              elsif final.is_a?(String)  
+              elsif final.is_a?(String)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
                 handlerwrapper.manipulate(mr,final)
-              end  
+              end
               handlerwrapper.inform_manipulate_change(
-                ((mr && mr.changed_status) ? @__weel_status : nil), 
+                ((mr && mr.changed_status) ? @__weel_status : nil),
                 ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
                 ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil),
                 @__weel_data,
@@ -615,10 +615,10 @@ class WEEL
               handlerwrapper.inform_activity_done
               wp.detail = :after
               handlerwrapper.inform_position_change :after => [wp.position]
-            end  
+            end
           when :call
             params = { }
-            case parameters 
+            case parameters
               when Hash
                 parameters.each do |k,p|
                   if p.is_a?(Symbol) && @__weel_data.include?(p)
@@ -626,16 +626,16 @@ class WEEL
                   else
                     params[k] = p
                   end
-                end  
-              when Array  
+                end
+              when Array
                 parameters.each_with_index do |p,i|
                   if p.is_a?(Symbol) && @__weel_data.include?(p)
                     params[p] = @__weel_data[p]
                   else
                     params[i] = p
-                  end  
+                  end
                 end
-              else  
+              else
                 raise("invalid parameters")
             end
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
@@ -652,14 +652,14 @@ class WEEL
               raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
 
               if Thread.current[:nolongernecessary]
-                handlerwrapper.activity_no_longer_necessary 
+                handlerwrapper.activity_no_longer_necessary
                 raise Signal::NoLongerNecessary
-              end  
+              end
               if self.__weel_state == :stopping
                 handlerwrapper.activity_stop
                 wp.passthrough = handlerwrapper.activity_passthrough_value
                 raise Signal::Proceed
-              end  
+              end
 
               if wp.passthrough.nil? && (final.is_a?(Proc) || final.is_a?(String))
                 handlerwrapper.inform_activity_manipulate
@@ -671,13 +671,13 @@ class WEEL
                     when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&final)
                     else
                       mr.instance_eval(&final)
-                  end  
-                elsif final.is_a?(String)  
+                  end
+                elsif final.is_a?(String)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
                   handlerwrapper.manipulate(mr,final,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
                 end
                 handlerwrapper.inform_manipulate_change(
-                  (mr.changed_status ? @__weel_status : nil), 
+                  (mr.changed_status ? @__weel_status : nil),
                   (mr.changed_data.any? ? mr.changed_data.uniq : nil),
                   (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
                   @__weel_data,
@@ -689,7 +689,7 @@ class WEEL
               handlerwrapper.inform_activity_done
               wp.detail = :after
               handlerwrapper.inform_position_change :after => [wp.position]
-            end  
+            end
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
@@ -718,7 +718,7 @@ class WEEL
         thread[:branches].each do |b|
           __weel_recursive_print(b,indent+'  ')
         end
-      end  
+      end
     end  # }}}
     def __weel_recursive_continue(thread)# {{{
       return unless thread
@@ -728,13 +728,13 @@ class WEEL
       if thread.alive? && thread[:branch_event]
         thread[:mutex].synchronize do
           thread[:branch_event].continue unless thread[:branch_event].nil?
-        end  
-      end  
+        end
+      end
       if thread[:branches]
         thread[:branches].each do |b|
           __weel_recursive_continue(b)
         end
-      end  
+      end
     end  # }}}
     def __weel_recursive_join(thread)# {{{
       return unless thread
@@ -745,13 +745,13 @@ class WEEL
         thread[:branches].each do |b|
           __weel_recursive_join(b)
         end
-      end  
+      end
     end  # }}}
 
     def __weel_position_test(position)# {{{
       if position.is_a?(Symbol) && position.to_s =~ /[a-zA-Z][a-zA-Z0-9_]*/
         position
-      else   
+      else
         self.__weel_state = :stopping
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
         handlerwrapper.inform_syntax_error(Exception.new("position (#{position}) not valid"),nil)
@@ -769,9 +769,9 @@ class WEEL
           branch[:branch_search] = false
         end
         @__weel_search_positions[position].detail == :after ? :after : false
-      else  
+      else
         branch[:branch_search] = true
-      end  
+      end
     end # }}}
 
     def __weel_sim
@@ -784,13 +784,13 @@ class WEEL
       handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
       handlerwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
       [handlerwrapper, current_branch_sim_pos]
-    end  
+    end
 
     def __weel_sim_stop(what,handlerwrapper,current_branch_sim_pos,options={})
       handlerwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
       Thread.current[:branch_sim_pos] = current_branch_sim_pos
     end
-  
+
   public
     def __weel_finalize
       __weel_recursive_join(@__weel_main)
@@ -809,11 +809,11 @@ class WEEL
       if newState == :stopping
         __weel_recursive_continue(@__weel_main)
       end
-  
+
       handlerwrapper.inform_state_change @__weel_state
     end # }}}
 
-  end # }}} 
+  end # }}}
 
 public
   def positions # {{{
@@ -837,7 +837,7 @@ public
   # Get/Set the handlerwrapper arguments
   def handlerwrapper_args # {{{
     @dslr.__weel_handlerwrapper_args
-  end # }}} 
+  end # }}}
   def handlerwrapper_args=(args) # {{{
     if args.class == Array
       @dslr.__weel_handlerwrapper_args = args
@@ -863,14 +863,14 @@ public
 
     if !new_weel_search.is_a?(Array) || new_weel_search.empty?
       false
-    else  
-      new_weel_search.each do |search_position| 
+    else
+      new_weel_search.each do |search_position|
         @dslr.__weel_search_positions[search_position.position] = search_position
-      end  
+      end
       true
     end
   end # }}}
-  
+
   def data(new_data=nil) # {{{
     unless new_data.nil? || !new_data.is_a?(Hash)
       new_data.each{|k,v|@dslr.__weel_data[k] = v}
@@ -905,16 +905,16 @@ public
         begin
           if code.is_a? Proc
             @dslr.instance_eval(&code)
-          else  
+          else
             @dslr.instance_eval(code)
-          end  
+          end
         rescue Exception => err
           @dslr.__weel_state = :stopping
           handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
           handlerwrapper.inform_syntax_error(err,code)
         end
         if @dslr.__weel_state == :running
-          @dslr.__weel_state = :finished 
+          @dslr.__weel_state = :finished
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{|wp| ipc[:unmark] << wp.position}
           @dslr.__weel_positions.clear
@@ -923,7 +923,7 @@ public
         end
         if @dslr.__weel_state == :simulating
           @dslr.__weel_state = final_state
-        end  
+        end
         if @dslr.__weel_state == :stopping
           @dslr.__weel_finalize
         end
@@ -936,7 +936,7 @@ public
     Thread.new do
       @dslr.__weel_state = :stopping
       @dslr.__weel_main.join if @dslr.__weel_main
-    end  
+    end
   end # }}}
   # Start the workflow execution
   def start # {{{
