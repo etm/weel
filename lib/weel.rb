@@ -219,7 +219,7 @@ class WEEL
     # parameters => stuff given to the control structure
     def simulate(type,nesting,sequence,parent,parameters={}); end
 
-    def callback(result); end
+    def callback(result=nil,options={}); end
 
     def test_condition(mr,code); mr.instance_eval(code); end
     def manipulate(mr,code,result=nil,status=nil); mr.instance_eval(code); end
