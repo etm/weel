@@ -315,11 +315,11 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters={}, code=nil, &blk)
-      __weel_activity(position,:call,endpoint,parameters,code||blk)
+    def call(position, endpoint, parameters={}, final=nil, update=nil, &blk)
+      __weel_activity(position,:call,endpoint,parameters,final||blk,update)
     end  
-    def manipulate(position, code=nil, &blk)
-      __weel_activity(position,:manipulate,nil,{},code||blk)
+    def manipulate(position, final=nil, &blk)
+      __weel_activity(position,:manipulate,nil,{},final||blk,nil)
     end  
     
     # Parallel DSL-Construct
@@ -550,7 +550,7 @@ class WEEL
     end # }}}
 
   private
-    def __weel_activity(position, type, endpoints, parameters, code)# {{{
+    def __weel_activity(position, type, endpoints, parameters, final, update)# {{{
       position = __weel_position_test position
       begin
         searchmode = __weel_is_in_search_mode(position)
@@ -561,7 +561,7 @@ class WEEL
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:code => code.is_a?(String) ? code : nil)
+          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:final => final.is_a?(String) ? final : nil)
           return
         end
 
@@ -596,14 +596,14 @@ class WEEL
           when :manipulate
             raise Signal::Stop unless handlerwrapper.vote_sync_before
 
-            if code.is_a?(Proc) || code.is_a?(String)
+            if final.is_a?(Proc) || final.is_a?(String)
               handlerwrapper.inform_activity_manipulate
-              if code.is_a?(Proc)
+              if final.is_a?(Proc)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                mr.instance_eval(&code)
-              elsif code.is_a?(String)  
+                mr.instance_eval(&final)
+              elsif final.is_a?(String)  
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,code)
+                handlerwrapper.manipulate(mr,final)
               end  
               handlerwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil), 
@@ -619,15 +619,10 @@ class WEEL
           when :call
             params = { }
             case parameters 
-              when String
-                code = parameters
-                parameters = nil
               when Hash
                 parameters.each do |k,p|
                   if p.is_a?(Symbol) && @__weel_data.include?(p)
                     params[k] = @__weel_data[p]
-                  elsif k == :code && p.is_a?(String)
-                    code = p
                   else
                     params[k] = p
                   end
@@ -666,20 +661,20 @@ class WEEL
                 raise Signal::Proceed
               end  
 
-              if wp.passthrough.nil? && (code.is_a?(Proc) || code.is_a?(String))
+              if wp.passthrough.nil? && (final.is_a?(Proc) || final.is_a?(String))
                 handlerwrapper.inform_activity_manipulate
                 status = handlerwrapper.activity_result_status
-                if code.is_a?(Proc)
+                if final.is_a?(Proc)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  case code.arity
-                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
+                  case final.arity
+                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&final)
+                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&final)
                     else
-                      mr.instance_eval(&code)
+                      mr.instance_eval(&final)
                   end  
-                elsif code.is_a?(String)  
+                elsif final.is_a?(String)  
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
+                  handlerwrapper.manipulate(mr,final,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
                 end
                 handlerwrapper.inform_manipulate_change(
                   (mr.changed_status ? @__weel_status : nil), 

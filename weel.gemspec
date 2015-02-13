@@ -17,4 +17,6 @@ Gem::Specification.new do |s|
   s.authors          = ['Juergen eTM Mangler','Gerhard Stuermer']
   s.email            = 'juergen.mangler@gmail.com'
   s.homepage         = 'http://cpee.org/'
+
+  s.add_runtime_dependency 'test-unit',  '~> 3.0'
 end
