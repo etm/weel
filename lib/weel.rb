@@ -315,11 +315,11 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters={}, final=nil, update=nil, &blk)
-      __weel_activity(position,:call,endpoint,parameters,final||blk,update)
+    def call(position, endpoint, parameters={}, finalize=nil, update=nil, &finalizeblk)
+      __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
     end
-    def manipulate(position, final=nil, &blk)
-      __weel_activity(position,:manipulate,nil,{},final||blk,nil)
+    def manipulate(position, code=nil, &codeblk)
+      __weel_activity(position,:manipulate,nil,{},code||codeblk)
     end
 
     # Parallel DSL-Construct
@@ -550,7 +550,7 @@ class WEEL
     end # }}}
 
   private
-    def __weel_activity(position, type, endpoints, parameters, final, update)# {{{
+    def __weel_activity(position, type, endpoints, parameters, finalize, update=nil)# {{{
       position = __weel_position_test position
       begin
         searchmode = __weel_is_in_search_mode(position)
@@ -561,7 +561,7 @@ class WEEL
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:final => final.is_a?(String) ? final : nil)
+          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
           return
         end
 
@@ -596,14 +596,14 @@ class WEEL
           when :manipulate
             raise Signal::Stop unless handlerwrapper.vote_sync_before
 
-            if final.is_a?(Proc) || final.is_a?(String)
+            if finalize.is_a?(Proc) || finalize.is_a?(String)
               handlerwrapper.inform_activity_manipulate
-              if final.is_a?(Proc)
+              if finalize.is_a?(Proc)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                mr.instance_eval(&final)
-              elsif final.is_a?(String)
+                mr.instance_eval(&finalize)
+              elsif finalize.is_a?(String)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                handlerwrapper.manipulate(mr,final)
+                handlerwrapper.manipulate(mr,finalize)
               end
               handlerwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil),
@@ -641,14 +641,12 @@ class WEEL
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
 
             passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
+            handlerwrapper.activity_handle passthrough, params
             begin
               # with loop if catching Signal::Again
               # handshake call and wait until it finished
-
-              handlerwrapper.activity_handle passthrough, params
               waitingresult = nil
               waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :stopped
-              raise waitingresult if !waitingresult.nil? && waitingresult.is_a?(Signal::Again)
               raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
 
               if Thread.current[:nolongernecessary]
@@ -661,20 +659,21 @@ class WEEL
                 raise Signal::Proceed
               end
 
-              if wp.passthrough.nil? && (final.is_a?(Proc) || final.is_a?(String))
+              code = waitingresult == Signal::Again ? update : finalize
+              if code.is_a?(Proc) || code.is_a?(String)
                 handlerwrapper.inform_activity_manipulate
                 status = handlerwrapper.activity_result_status
-                if final.is_a?(Proc)
+                if code.is_a?(Proc)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  case final.arity
-                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&final)
-                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&final)
+                  case code.arity
+                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
                     else
-                      mr.instance_eval(&final)
+                      mr.instance_eval(&code)
                   end
-                elsif final.is_a?(String)
+                elsif code.is_a?(String)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  handlerwrapper.manipulate(mr,final,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
+                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
                 end
                 handlerwrapper.inform_manipulate_change(
                   (mr.changed_status ? @__weel_status : nil),
@@ -684,7 +683,7 @@ class WEEL
                   @__weel_endpoints
                 )
               end
-            end while wp.passthrough.nil? && waitingresult == Signal::Again
+            end while waitingresult == Signal::Again
             if wp.passthrough.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
