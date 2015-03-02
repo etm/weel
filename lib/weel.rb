@@ -315,11 +315,11 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters={}, finalize=nil, update=nil, &finalizeblk)
+    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk)
       __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
     end
-    def manipulate(position, code=nil, &codeblk)
-      __weel_activity(position,:manipulate,nil,{},code||codeblk)
+    def manipulate(position, script=nil, &scriptblk)
+      __weel_activity(position,:manipulate,nil,{},script||scriptblk)
     end
 
     # Parallel DSL-Construct
@@ -435,7 +435,6 @@ class WEEL
           end
         end
       end
-      Thread.pass
     end # }}}
 
     # Choose DSL-Construct
@@ -669,7 +668,7 @@ class WEEL
                     when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
                     when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
                     else
-                      mr.instance_eval(&code)
+                      mr.instance_exec(&code)
                   end
                 elsif code.is_a?(String)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)

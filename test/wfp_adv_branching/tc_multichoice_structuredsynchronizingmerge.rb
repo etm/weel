@@ -33,7 +33,7 @@ class TestWFPMultiChoice < Test::Unit::TestCase
           end
           parallel_branch do
             alternative(data.x > 0) do
-              call :a1_2, :endpoint1, :call => Proc.new{sleep 0.5}
+              call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.5} }
             end
           end
         end

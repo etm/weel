@@ -21,7 +21,7 @@ class TestWorkflowControl < Test::Unit::TestCase
   def test_stop
     @wf.description do
       call :a_test_1_1, :endpoint1
-      call :a_test_1_2, :endpoint1, { :call => Proc.new{ sleep 0.5 } }
+      call :a_test_1_2, :endpoint1, parameters: { :call => Proc.new{ sleep 0.5 } }
       call :a_test_1_3, :endpoint1
     end
     @wf.search WEEL::Position.new(:a_test_1_1, :at)
@@ -41,7 +41,7 @@ class TestWorkflowControl < Test::Unit::TestCase
   def test_continue
     @wf.description do
       call :a_test_1_1, :endpoint1
-      call :a_test_1_2, :endpoint1, :call =>  Proc.new{ sleep 0.5 }
+      call :a_test_1_2, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
       call :a_test_1_3, :endpoint1
     end
     @wf.start

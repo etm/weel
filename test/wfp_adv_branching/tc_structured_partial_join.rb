@@ -12,19 +12,19 @@ class TestWFPCancellingStructuredPartialJoin < Test::Unit::TestCase
           call :a_1, :endpoint1
         end
         parallel_branch do
-          call :a_2, :endpoint1, :call => Proc.new{sleep 0.2}
+          call :a_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.2} }
         end
         parallel_branch do
           call :a_3, :endpoint1
         end
         parallel_branch do
-          call :a_4, :endpoint1, :call => Proc.new{sleep 0.6}
+          call :a_4, :endpoint1, parameters: { :call => Proc.new{sleep 0.6} }
         end
         parallel_branch do
           call :a_5, :endpoint1
         end
       end
-      call :a_6, :endpoint1, :call => Proc.new{sleep 0.2}
+      call :a_6, :endpoint1, parameters: { :call => Proc.new{sleep 0.2} }
     end
     t = @wf.start.join
     wf_assert("CALL a_1:")

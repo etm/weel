@@ -8,10 +8,10 @@ class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
     @wf.description do
       parallel do
         parallel_branch do
-          call :a1_1, :endpoint1, :call => Proc.new{sleep 0.2}
+          call :a1_1, :endpoint1, parameters: { :call => Proc.new{sleep 0.2} }
         end
         parallel_branch do
-          call :a1_2, :endpoint1, :call => Proc.new{sleep 0.4}
+          call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.4} }
         end
         choose do
           alternative(false) do
@@ -20,7 +20,7 @@ class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
             end  
           end
           otherwise do
-            call :a2_2, :endpoint1, :call => Proc.new{sleep 0.1}
+            call :a2_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.1} }
           end
         end
       end
