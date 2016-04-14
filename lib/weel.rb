@@ -594,6 +594,7 @@ class WEEL
         case type
           when :manipulate
             raise Signal::Stop unless handlerwrapper.vote_sync_before
+            raise Signal::Skip if self.__weel_state == :stopping
 
             if finalize.is_a?(Proc) || finalize.is_a?(String)
               handlerwrapper.inform_activity_manipulate
@@ -638,6 +639,7 @@ class WEEL
                 raise("invalid parameters")
             end
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
+            raise Signal::Skip if self.__weel_state == :stopping
 
             passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
             handlerwrapper.activity_handle passthrough, params
@@ -702,6 +704,8 @@ class WEEL
         handlerwrapper.inform_position_change :unmark => [wp.position]
       rescue Signal::StopSkipManipulate, Signal::Stop
         self.__weel_state = :stopping
+      rescue Signal::Skip
+        nil
       rescue => err
         handlerwrapper.inform_activity_failed err
         self.__weel_state = :stopping
