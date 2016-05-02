@@ -59,6 +59,7 @@ class WEEL
   end # }}}
 
   module Signal # {{{
+    class Skip < Exception; end
     class SkipManipulate < Exception; end
     class StopSkipManipulate < Exception; end
     class Stop < Exception; end
