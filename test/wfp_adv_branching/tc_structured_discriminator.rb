@@ -18,7 +18,7 @@ class TestWFPStructuredDiscriminator < Test::Unit::TestCase
       end
       call :a_2, :endpoint1
     end
-    t = @wf.start.join
+    @wf.start.join
     wf_assert("CALL a_1_1:")
     wf_assert("CALL a_1_2:")
     wf_assert("CALL a_2:")

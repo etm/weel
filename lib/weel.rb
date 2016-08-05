@@ -16,15 +16,8 @@
 
 require 'thread'
 
-# OMG!111! strings have to be emptied
-class String # {{{
-  def clear
-    self.slice!(0..-1)
-  end
-end # }}}
-
 # OMG!111! deep cloning for ReadHashes
-class Object #{{{
+class Object # {{{
   def deep_clone
     return @deep_cloning_obj if @deep_cloning
     @deep_cloning_obj = clone
@@ -125,7 +118,7 @@ class WEEL
     end
 
     def delete(value)
-      if @__weel_values.has_key?(value)
+      if @__weel_values.key?(value)
         @__weel_what << value
         @__weel_values.delete(value)
       end
@@ -137,7 +130,7 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      if args.empty? && @__weel_values.has_key?(name)
+      if args.empty? && @__weel_values.key?(name)
         @__weel_values[name]
       elsif name.to_s[-1..-1] == "=" && args.length == 1
         temp = name.to_s[0..-2]
@@ -153,7 +146,7 @@ class WEEL
     end
   end # }}}
 
-  class Status #{{{
+  class Status # {{{
     def initialize(id,message)
       @id        = id
       @message   = message
@@ -176,7 +169,7 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      if args.empty? && @__weel_values.has_key?(name)
+      if args.empty? && @__weel_values.key?(name)
         if @__weel_sim
           "➤#{name}"
         else
@@ -236,7 +229,7 @@ class WEEL
     end
   end # }}}
 
-   class Continue #{{{
+   class Continue # {{{
      def initialize
        @q = Queue.new
        @m = Mutex.new
@@ -265,6 +258,7 @@ class WEEL
   def self::endpoint(new_endpoints)# {{{
     @@__weel_new_endpoints ||= {}
     @@__weel_new_endpoints.merge! new_endpoints
+    remove_method :initialize_endpoints if method_defined? :initialize_endpoints
     define_method :initialize_endpoints do
       @@__weel_new_endpoints.each do |name,value|
         @dslr.__weel_endpoints[name.to_s.to_sym] = value
@@ -292,7 +286,7 @@ class WEEL
       self.description = @@__weel_control_block
     end
   end #  }}}
-  def self::flow #{{{
+  def self::flow # {{{
   end #}}}
 
   class DSLRealization # {{{
@@ -558,7 +552,7 @@ class WEEL
         return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{|ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{ |ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
 
         if __weel_sim
           handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
@@ -876,19 +870,19 @@ public
 
   def data(new_data=nil) # {{{
     unless new_data.nil? || !new_data.is_a?(Hash)
-      new_data.each{|k,v|@dslr.__weel_data[k] = v}
+      new_data.each{ |k,v| @dslr.__weel_data[k] = v }
     end
     @dslr.__weel_data
   end # }}}
   def endpoints(new_endpoints=nil) # {{{
     unless new_endpoints.nil? || !new_endpoints.is_a?(Hash)
-      new_endpoints.each{|k,v|@dslr.__weel_endpoints[k] = v}
+      new_endpoints.each{ |k,v| @dslr.__weel_endpoints[k] = v }
     end
     @dslr.__weel_endpoints
   end # }}}
   def endpoint(new_endpoints) # {{{
     unless new_endpoints.nil? || !new_endpoints.is_a?(Hash) || !new_endpoints.length == 1
-      new_endpoints.each{|k,v|@dslr.__weel_endpoints[k] = v}
+      new_endpoints.each{ |k,v| @dslr.__weel_endpoints[k] = v }
     end
     nil
   end # }}}
@@ -900,8 +894,9 @@ public
   def description(&blk)
     self.description=(blk)
   end
-  def description=(code)  # {{{
+  def description=(code) # {{{
     (class << self; self; end).class_eval do
+      remove_method :__weel_control_flow if method_defined? :__weel_control_flow
       define_method :__weel_control_flow do |state,final_state=:finished|
         @dslr.__weel_positions.clear
         @dslr.__weel_state = state
@@ -919,7 +914,7 @@ public
         if @dslr.__weel_state == :running
           @dslr.__weel_state = :finished
           ipc = { :unmark => [] }
-          @dslr.__weel_positions.each{|wp| ipc[:unmark] << wp.position}
+          @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp.position }
           @dslr.__weel_positions.clear
           handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
           handlerwrapper.inform_position_change(ipc)

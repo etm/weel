@@ -26,7 +26,7 @@ class TestWFPCancellingStructuredPartialJoin < Test::Unit::TestCase
       end
       call :a_6, :endpoint1, parameters: { :call => Proc.new{sleep 0.2} }
     end
-    t = @wf.start.join
+    @wf.start.join
     wf_assert("CALL a_1:")
     wf_assert("CALL a_2:")
     wf_assert("CALL a_3:")
