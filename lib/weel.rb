@@ -940,7 +940,13 @@ public
   def start # {{{
     return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
     @dslr.__weel_main = Thread.new do
-      __weel_control_flow(:running)
+      begin
+        __weel_control_flow(:running)
+      rescue => e
+        @dslr.__weel_state = :stopping
+        puts e.message
+        puts e.backtrace
+      end
     end
   end # }}}
 
