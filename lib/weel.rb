@@ -183,6 +183,11 @@ class WEEL
   end # }}}
 
   class HandlerWrapperBase # {{{
+    def self::inform_state_change(arguments,newstate); end
+    def self::inform_syntax_error(arguments,err,code); end
+    def self::inform_handlerwrapper_error(arguments,err); end
+    def self::inform_position_change(arguments,ipc); end
+
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
 
     def activity_handle(passthrough, parameters); end
@@ -198,11 +203,7 @@ class WEEL
     def inform_activity_done; end
     def inform_activity_manipulate; end
     def inform_activity_failed(err); end
-
-    def inform_syntax_error(err,code); end
     def inform_manipulate_change(status,changed_data,changed_endpoints,data,endpoints); end
-    def inform_position_change(ipc); end
-    def inform_state_change(newstate); end
 
     def vote_sync_before(parameters=nil); true; end
     def vote_sync_after; true; end
@@ -403,8 +404,7 @@ class WEEL
           yield(*local)
         rescue => err
           self.__weel_state = :stopping
-          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-          handlerwrapper.inform_syntax_error(err,nil)
+          @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,err,nil)
           Thread.pass
         end
 
@@ -423,8 +423,7 @@ class WEEL
             begin
               ipc = {}
               ipc[:unmark] = [Thread.current[:branch_position].position]
-              handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-              handlerwrapper.inform_position_change(ipc)
+              @__weel_handlerwrapper::inform_position_change(@__weel_handlerwrapper_args,ipc)
             end rescue nil
             Thread.current[:branch_position] = nil
           end
@@ -581,7 +580,7 @@ class WEEL
         @__weel_positions << wp
         Thread.current[:branch_position] = wp
 
-        handlerwrapper.inform_position_change(ipc)
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
 
         # searchmode position is after, jump directly to vote_sync_after
         raise Signal::Proceed if searchmode == :after
@@ -609,7 +608,7 @@ class WEEL
               )
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              handlerwrapper.inform_position_change :after => [wp.position]
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
             end
           when :call
             params = { }
@@ -683,7 +682,7 @@ class WEEL
             if wp.passthrough.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              handlerwrapper.inform_position_change :after => [wp.position]
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
             end
         end
         raise Signal::Proceed
@@ -696,7 +695,7 @@ class WEEL
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
         wp.detail = :unmark
-        handlerwrapper.inform_position_change :unmark => [wp.position]
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp.position]
       rescue Signal::StopSkipManipulate, Signal::Stop
         self.__weel_state = :stopping
       rescue Signal::Skip
@@ -750,8 +749,7 @@ class WEEL
         position
       else
         self.__weel_state = :stopping
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-        handlerwrapper.inform_syntax_error(Exception.new("position (#{position}) not valid"),nil)
+        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("position (#{position}) not valid"),nil)
       end
     end # }}}
 
@@ -792,8 +790,7 @@ class WEEL
     def __weel_finalize
       __weel_recursive_join(@__weel_main)
       @__weel_state = :stopped
-      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-      handlerwrapper.inform_state_change @__weel_state
+      @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
     end
 
     def __weel_state=(newState)# {{{
@@ -802,12 +799,11 @@ class WEEL
       @__weel_positions = Array.new if newState == :running
       @__weel_state = newState
 
-      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
       if newState == :stopping
         __weel_recursive_continue(@__weel_main)
       end
 
-      handlerwrapper.inform_state_change @__weel_state
+      @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
     end # }}}
 
   end # }}}
@@ -847,9 +843,9 @@ public
     @dslr.__weel_state
   end #  }}}
   def state_signal # {{{
-    handlerwrapper.new(handlerwrapper_args).inform_state_change(state)
+    handlerwrapper::inform_state_change handlerwrapper_args, state
     state
-  end #  }}}
+  end # }}}
 
   # Set search positions
   # set new_weel_search to a boolean (or anything else) to start the process from beginning (reset serach positions)
@@ -908,16 +904,14 @@ public
           end
         rescue Exception => err
           @dslr.__weel_state = :stopping
-          handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
-          handlerwrapper.inform_syntax_error(err,code)
+          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,err,code)
         end
         if @dslr.__weel_state == :running
           @dslr.__weel_state = :finished
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp.position }
           @dslr.__weel_positions.clear
-          handlerwrapper = @dslr.__weel_handlerwrapper.new @dslr.__weel_handlerwrapper_args
-          handlerwrapper.inform_position_change(ipc)
+          @dslr.__weel_handlerwrapper::inform_position_change(@dslr.__weel_handlerwrapper_args,ipc)
         end
         if @dslr.__weel_state == :simulating
           @dslr.__weel_state = final_state
@@ -943,9 +937,7 @@ public
       begin
         __weel_control_flow(:running)
       rescue => e
-        @dslr.__weel_state = :stopping
-        puts e.message
-        puts e.backtrace
+        handlerwrapper::inform_handlerwrapper_error handlerwrapper_args, e
       end
     end
   end # }}}
