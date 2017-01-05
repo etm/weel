@@ -450,7 +450,7 @@ class WEEL
       hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
-        return if Thread.current[:alternative_mode] == :exclusive && Thread.current[:alternative_executed][-1] = true
+        return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
         if condition.is_a?(String) && !__weel_sim
           condition = __weel_eval_condition(condition)
         end
@@ -951,8 +951,8 @@ public
       begin
         __weel_control_flow(:running)
       rescue => e
-	puts e.message
-	puts e.backtrace
+        puts e.message
+        puts e.backtrace
         handlerwrapper::inform_handlerwrapper_error handlerwrapper_args, e
       end
     end
