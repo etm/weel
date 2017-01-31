@@ -331,7 +331,7 @@ class WEEL
 
       hw, pos = __weel_sim_start(:parallel) if __weel_sim
 
-      __weel_protect_yield &Proc.new
+      __weel_protect_yield(&Proc.new)
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       1.upto Thread.current[:branches].size do
@@ -400,7 +400,7 @@ class WEEL
           handlerwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
         end
 
-        __weel_protect_yield *local, &Proc.new
+        __weel_protect_yield(*local, &Proc.new)
 
         __weel_sim_stop(:parallel_branch,handlerwrapper,current_branch_sim_pos) if __weel_sim
 
@@ -435,7 +435,7 @@ class WEEL
       Thread.current[:alternative_executed] << false
       Thread.current[:alternative_mode] << mode
       hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode].last) if __weel_sim
-      __weel_protect_yield &Proc.new
+      __weel_protect_yield(&Proc.new)
       __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode].last) if __weel_sim
       Thread.current[:alternative_executed].pop
       Thread.current[:alternative_mode].pop
@@ -476,7 +476,7 @@ class WEEL
         @__weel_critical_sections[id] = semaphore if id
       end
       semaphore.synchronize do
-        __weel_protect_yield &Proc.new
+        __weel_protect_yield(&Proc.new)
       end
     end # }}}
 
@@ -488,7 +488,7 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       if __weel_is_in_search_mode
         catch :escape do
-          __weel_protect_yield &Proc.new
+          __weel_protect_yield(&Proc.new)
         end
         return if __weel_is_in_search_mode
       end
@@ -496,7 +496,7 @@ class WEEL
         cond = condition[0].is_a?(Proc) ? true : condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
         catch :escape do
-          __weel_protect_yield &Proc.new
+          __weel_protect_yield(&Proc.new)
         end
         __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
         return
@@ -505,11 +505,11 @@ class WEEL
         case condition[1]
           when :pre_test
             while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
-              __weel_protect_yield &Proc.new
+              __weel_protect_yield(&Proc.new)
             end
           when :post_test
             begin
-              __weel_protect_yield &Proc.new
+              __weel_protect_yield(&Proc.new)
             end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped
         end
       end
@@ -538,7 +538,7 @@ class WEEL
     def __weel_protect_yield(*local)
       begin
         yield(*local) if block_given?
-      rescue => err
+      rescue # => err # don't look into it, or it will explode
         self.__weel_state = :stopping
         @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("DSL error. I don't want to tell you where and why."),nil)
         nil
@@ -549,7 +549,7 @@ class WEEL
       begin
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition.is_a?(Proc)
         condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
-      rescue => err
+      rescue # => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
         @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("Condition error. I don't want to tell you where and why."),nil)
@@ -916,7 +916,7 @@ public
           else
             @dslr.instance_eval(code)
           end
-        rescue Exception => err
+        rescue # => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("DSL error. I don't want to tell you where and why."),code)
         end
