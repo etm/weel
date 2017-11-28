@@ -18,8 +18,8 @@ end
 
 task :push => :gem do |r|
   `gem push pkg/weel.gem`
-end  
+end
 
 task :install => :gem do |r|
-  `sudo gem install pkg/weel.gem`
-end  
+  `gem install pkg/weel.gem`
+end

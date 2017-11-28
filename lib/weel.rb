@@ -447,17 +447,17 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition,args={})# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
+      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
-        if condition.is_a?(String) && !__weel_sim
+        if (condition.is_a?(String) || condition.is_a?(Proc)) && !__weel_sim
           condition = __weel_eval_condition(condition)
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end
       __weel_protect_yield(&Proc.new) if __weel_is_in_search_mode || __weel_sim || condition
-      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => condition.is_a?(String) ? condition : nil)) if __weel_sim
+      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
     end # }}}
     def otherwise(args={}) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
@@ -515,6 +515,9 @@ class WEEL
       end
     end # }}}
 
+    def test(code=nil,&blk)# {{{
+      code || blk
+    end # }}}
     def pre_test(code=nil,&blk)# {{{
       [code || blk, :pre_test]
     end # }}}
@@ -916,6 +919,9 @@ public
           else
             @dslr.instance_eval(code)
           end
+        rescue SyntaxError => se
+          @dslr.__weel_state = :stopping
+          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(se.message),code)
         rescue # => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("DSL error. I don't want to tell you where and why."),code)
