@@ -1,13 +1,13 @@
 Gem::Specification.new do |s|
   s.name             = "weel"
-  s.version          = "1.99.50"
+  s.version          = "1.99.51"
   s.platform         = Gem::Platform::RUBY
   s.license          = "LGPL-3.0"
   s.summary          = "Preliminary release of the Workflow Execution Engine Library (WEEL)"
 
   s.description      = "see http://cpee.org"
 
-  s.required_ruby_version = '>=2.0.0'
+  s.required_ruby_version = '>=2.3.0'
 
   s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING Changelog FEATURES INSTALL Rakefile weel.gemspec README AUTHORS)
   s.require_path     = 'lib'

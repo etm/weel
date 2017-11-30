@@ -717,6 +717,9 @@ class WEEL
         self.__weel_state = :stopping
       rescue Signal::Skip
         nil
+      rescue SyntaxError => se
+        handlerwrapper.inform_activity_failed se
+        self.__weel_state = :stopping
       rescue => err
         handlerwrapper.inform_activity_failed err
         self.__weel_state = :stopping
