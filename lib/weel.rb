@@ -541,9 +541,9 @@ class WEEL
     def __weel_protect_yield(*local)
       begin
         yield(*local) if block_given?
-      rescue NameError # => err # don't look into it, or it will explode
+      rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("DSL protected_yield error. I don't want to tell you where and why."),nil)
+        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue => err
         self.__weel_state = :stopping
@@ -556,10 +556,10 @@ class WEEL
       begin
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition.is_a?(Proc)
         condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
-      rescue NameError # => err # don't look into it, or it will explode
+      rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("Condition error. I don't want to tell you where and why."),nil)
+        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue => err
         self.__weel_state = :stopping
@@ -935,7 +935,7 @@ public
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(se.message),code)
         rescue NameError # => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
-          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("DSL main error. I don't want to tell you where and why."),code)
+          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
         rescue => err
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(err.message),code)
