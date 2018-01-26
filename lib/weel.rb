@@ -933,7 +933,7 @@ public
         rescue SyntaxError => se
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(se.message),code)
-        rescue NameError # => err # don't look into it, or it will explode
+        rescue NameError => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
         rescue => err
