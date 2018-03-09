@@ -56,6 +56,7 @@ class WEEL
     class SkipManipulate < Exception; end
     class StopSkipManipulate < Exception; end
     class Stop < Exception; end
+    class StopAfter < Exception; end
     class Proceed < Exception; end
     class NoLongerNecessary < Exception; end
     class Again < Exception; end
@@ -703,6 +704,10 @@ class WEEL
             end
         end
         raise Signal::Proceed
+      rescue Signal::StopAfter
+        self.__weel_state = :stopping
+        wp.detail = :unmark
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp.position]
       rescue Signal::SkipManipulate, Signal::Proceed
         if self.__weel_state != :stopping && !handlerwrapper.vote_sync_after
           self.__weel_state = :stopping
