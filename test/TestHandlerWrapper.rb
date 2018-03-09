@@ -15,6 +15,7 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
     @__myhandler_continue = continue
     @__myhandler_endpoint = endpoint
     @__myhandler_returnValue = nil
+    @t = nil
   end
 
   # executes a ws-call to the given endpoint with the given parameters. the call
