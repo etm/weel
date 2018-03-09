@@ -705,9 +705,10 @@ class WEEL
         end
         raise Signal::Proceed
       rescue Signal::StopAfter
+        handlerwrapper.inform_activity_done
+        wp.detail = :after
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
         self.__weel_state = :stopping
-        wp.detail = :unmark
-        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp.position]
       rescue Signal::SkipManipulate, Signal::Proceed
         if self.__weel_state != :stopping && !handlerwrapper.vote_sync_after
           self.__weel_state = :stopping
