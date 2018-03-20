@@ -81,21 +81,35 @@ class WEEL
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
+      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) }
       @__weel_endpoints = endpoints
+      @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
       @__weel_status = status
       @changed_status = status.id
       @changed_data = []
+      @touched_data = []
       @changed_endpoints = []
+      @touched_endpoints = []
     end
 
-    attr_reader :changed_data, :changed_endpoints
+    def changed_data
+      @touched_data.each do |e|
+        if Marshal.dump(@__weel_data[e]) != @__weel_data_orig[e]
+          @changed_data << e
+        end
+      end
+      @changed_data
+    end
+    def changed_endpoints
+      @changed_endpoints
+    end
 
     def original_data
-      @__weel_data
+      @__weel_data_orig.transform_values{|val| Marshal.load(val) }
     end
 
     def original_endpoints
-      @__weel_endpoints
+      @__weel_endpoints_orig.transform_values{|val| Marshal.load(val) }
     end
 
     def changed_status
@@ -103,43 +117,49 @@ class WEEL
     end
 
     def data
-      ManipulateHash.new(@__weel_data,@changed_data)
+      ManipulateHash.new(@__weel_data,@touched_data,@changed_data)
     end
     def endpoints
-      ManipulateHash.new(@__weel_endpoints,@changed_endpoints)
+      ManipulateHash.new(@__weel_endpoints,@touched_endpoints,@changed_endpoints)
     end
     def status
       @__weel_status
     end
   end # }}}
   class ManipulateHash # {{{
-    def initialize(values,what)
+    attr_reader :__weel_touched, :__weel_changed
+
+    def initialize(values,touched,changed)
       @__weel_values = values
-      @__weel_what = what
+      @__weel_touched = touched
+      @__weel_changed = changed
     end
 
     def delete(value)
       if @__weel_values.key?(value)
-        @__weel_what << value
+        @__weel_changed << value
         @__weel_values.delete(value)
       end
     end
 
     def clear
-      @__weel_what += @__weel_values.keys
+      @__weel_changed += @__weel_values.keys
       @__weel_values.clear
     end
 
     def method_missing(name,*args)
       if args.empty? && @__weel_values.key?(name)
+        @__weel_touched << name
         @__weel_values[name]
       elsif name.to_s[-1..-1] == "=" && args.length == 1
         temp = name.to_s[0..-2]
-        @__weel_what << temp.to_sym
+        @__weel_changed << temp.to_sym
         @__weel_values[temp.to_sym] = args[0]
       elsif name.to_s == "[]=" && args.length == 2
+        @__weel_changed << args[0]
         @__weel_values[args[0]] = args[1]
       elsif name.to_s == "[]" && args.length == 1
+        @__weel_touched << args[0]
         @__weel_values[args[0]]
       else
         nil
