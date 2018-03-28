@@ -334,7 +334,10 @@ class WEEL
     def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk)
       __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
     end
-    def manipulate(position, parameters: {}, script=nil, &scriptblk)
+    def manipulate(position, label=nil, script=nil, &scriptblk)
+      if aaa.nil? && script.nil? && !label.nil?
+        script, label = label, nil
+      end
       __weel_activity(position,:manipulate,nil,{},script||scriptblk)
     end
 
