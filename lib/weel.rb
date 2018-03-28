@@ -56,7 +56,6 @@ class WEEL
     class SkipManipulate < Exception; end
     class StopSkipManipulate < Exception; end
     class Stop < Exception; end
-    class StopAfter < Exception; end
     class Proceed < Exception; end
     class NoLongerNecessary < Exception; end
     class Again < Exception; end
@@ -335,7 +334,7 @@ class WEEL
     def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk)
       __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
     end
-    def manipulate(position, script=nil, &scriptblk)
+    def manipulate(position, parameters: {}, script=nil, &scriptblk)
       __weel_activity(position,:manipulate,nil,{},script||scriptblk)
     end
 
@@ -547,6 +546,8 @@ class WEEL
     end # }}}
 
     def escape; throw :escape; end
+    def terminate; __weel_state = :finishing; end
+    def stop; __weel_state = :stopping; end
 
     def status # {{{
       @__weel_status
@@ -732,11 +733,6 @@ class WEEL
             end
         end
         raise Signal::Proceed
-      rescue Signal::StopAfter
-        handlerwrapper.inform_activity_done
-        wp.detail = :after
-        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
-        self.__weel_state = :stopping
       rescue Signal::SkipManipulate, Signal::Proceed
         if self.__weel_state != :stopping && !handlerwrapper.vote_sync_after
           self.__weel_state = :stopping
@@ -853,7 +849,7 @@ class WEEL
       @__weel_positions = Array.new if newState == :running
       @__weel_state = newState
 
-      if newState == :stopping
+      if newState == :stopping || newState == :finishing
         __weel_recursive_continue(@__weel_main)
       end
 
@@ -966,7 +962,7 @@ public
           @dslr.__weel_state = :stopping
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(err.message),code)
         end
-        if @dslr.__weel_state == :running
+        if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
           @dslr.__weel_state = :finished
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp.position }
