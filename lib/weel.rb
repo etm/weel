@@ -211,6 +211,7 @@ class WEEL
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
 
     def activity_handle(passthrough, parameters); end
+    def activity_manipulate_handle(parameters); end
 
     def activity_result_value; end
     def activity_result_status; end
@@ -334,11 +335,13 @@ class WEEL
     def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk)
       __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
     end
-    def manipulate(position, label=nil, script=nil, &scriptblk)
-      if aaa.nil? && script.nil? && !label.nil?
-        script, label = label, nil
+    # when two params, second param always script
+    # when block and two params, parameters stays
+    def manipulate(position, parameters=nil, script=nil, &scriptblk)
+      if scriptblk.nil? && script.nil? && !parameters.nil?
+        script, parameters = parameters, nil
       end
-      __weel_activity(position,:manipulate,nil,{},script||scriptblk)
+      __weel_activity(position,:manipulate,nil,parameters||{},script||scriptblk)
     end
 
     # Parallel DSL-Construct
@@ -641,6 +644,7 @@ class WEEL
             raise Signal::Skip if self.__weel_state == :stopping
 
             if finalize.is_a?(Proc) || finalize.is_a?(String)
+              handlerwrapper.activity_manipulate_handle(parameters)
               handlerwrapper.inform_activity_manipulate
               if finalize.is_a?(Proc)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
