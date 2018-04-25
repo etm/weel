@@ -178,7 +178,7 @@ class WEEL
     end
     def nudge!
       @nudge.clear
-      @nudge.push
+      @nudge.push(nil)
     end
     def nudged?
       @nudge.pop
@@ -222,7 +222,6 @@ class WEEL
     def activity_manipulate_handle(parameters); end
 
     def activity_result_value; end
-    def activity_result_status; end
 
     def activity_stop; end
     def activity_passthrough_value; end
@@ -246,7 +245,7 @@ class WEEL
     def callback(result=nil,options={}); end
 
     def test_condition(mr,code); mr.instance_eval(code); end
-    def manipulate(mr,code,result=nil,status=nil); mr.instance_eval(code); end
+    def manipulate(mr,code,result=nil); mr.instance_eval(code); end
   end  # }}}
 
   class Position # {{{
@@ -675,6 +674,7 @@ class WEEL
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                p @__weel_status
                 handlerwrapper.manipulate(mr,finalize)
               end
               handlerwrapper.inform_manipulate_change(
@@ -735,18 +735,17 @@ class WEEL
               code = waitingresult == Signal::Again ? update : finalize
               if code.is_a?(Proc) || code.is_a?(String)
                 handlerwrapper.inform_activity_manipulate
-                status = handlerwrapper.activity_result_status
                 if code.is_a?(Proc)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
                   case code.arity
                     when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil),&code)
+                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
                     else
                       mr.instance_exec(&code)
                   end
                 elsif code.is_a?(String)
                   mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,(status.is_a?(Status)?status:nil))
+                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value)
                 end
                 handlerwrapper.inform_manipulate_change(
                   (mr.changed_status ? @__weel_status : nil),
