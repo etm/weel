@@ -168,12 +168,20 @@ class WEEL
 
   class Status # {{{
     def initialize(id,message)
-      @id        = id
-      @message   = message
+      @id      = id
+      @message = message
+      @nudge   = Queue.new
     end
     def update(id,message)
-      @id        = id
-      @message   = message
+      @id      = id
+      @message = message
+    end
+    def nudge!
+      @nudge.clear
+      @nudge.push
+    end
+    def nudged?
+      @nudge.pop
     end
     attr_reader :id, :message
   end #}}}
