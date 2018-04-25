@@ -180,7 +180,7 @@ class WEEL
       @nudge.clear
       @nudge.push(nil)
     end
-    def nudged?
+    def wait_until_nudged!
       @nudge.pop
     end
     attr_reader :id, :message
