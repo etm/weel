@@ -319,7 +319,7 @@ class WEEL
   end #}}}
 
   class DSLRealization # {{{
-    def initialize
+    def  initialize #{{{
       @__weel_search_positions = {}
       @__weel_positions = Array.new
       @__weel_main = nil
@@ -330,7 +330,7 @@ class WEEL
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
       @__weel_sim = -1
-    end
+    end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args
     attr_reader :__weel_state, :__weel_status
 
@@ -339,17 +339,17 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk)
+    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk) #{{{
       __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
-    end
+    end #}}}
     # when two params, second param always script
     # when block and two params, parameters stays
-    def manipulate(position, parameters=nil, script=nil, &scriptblk)
+    def manipulate(position, parameters=nil, script=nil, &scriptblk) #{{{
       if scriptblk.nil? && script.nil? && !parameters.nil?
         script, parameters = parameters, nil
       end
       __weel_activity(position,:manipulate,nil,parameters||{},script||scriptblk)
-    end
+    end #}}}
 
     # Parallel DSL-Construct
     # Defines Workflow paths that can be executed parallel.
@@ -558,20 +558,20 @@ class WEEL
       [code || blk, :post_test]
     end # }}}
 
-    def escape
+    def escape #{{{
       return if __weel_is_in_search_mode
       throw :escape
-    end
-    def terminate
+    end #}}}
+    def terminate #{{{
       return if __weel_is_in_search_mode
       self.__weel_state = :finishing
-    end
-    def stop(position)
+    end #}}}
+    def stop(position) #{{{
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
       __weel_progress searchmode, position, true
       self.__weel_state = :stopping
-    end
+    end #}}}
 
     def status # {{{
       @__weel_status
@@ -584,7 +584,7 @@ class WEEL
     end # }}}
 
   private
-    def __weel_protect_yield(*local)
+    def __weel_protect_yield(*local) #{{{
       begin
         yield(*local) if block_given?
       rescue NameError => err # don't look into it, or it will explode
@@ -596,9 +596,9 @@ class WEEL
         @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new(err.message),nil)
         nil
       end
-    end
+    end #}}}
 
-    def __weel_eval_condition(condition)
+    def __weel_eval_condition(condition) #{{{
       begin
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition.is_a?(Proc)
         condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
@@ -612,9 +612,9 @@ class WEEL
         @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new(err.message),nil)
         nil
       end
-    end
+    end #}}}
 
-    def __weel_progress(searchmode, position, skip=false)
+    def __weel_progress(searchmode, position, skip=false) #{{{
       ipc = {}
       if searchmode == :after
         wp = WEEL::Position.new(position, :after, nil)
@@ -639,7 +639,7 @@ class WEEL
 
       @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
       wp
-    end
+    end #}}}
 
     def __weel_activity(position, type, endpoints, parameters, finalize, update=nil)# {{{
       position = __weel_position_test position
@@ -849,29 +849,29 @@ class WEEL
       end
     end # }}}
 
-    def __weel_sim
+    def __weel_sim #{{{
       @__weel_state == :simulating
-    end
+    end #}}}
 
-    def __weel_sim_start(what,options={})
+    def __weel_sim_start(what,options={}) #{{{
       current_branch_sim_pos = Thread.current[:branch_sim_pos]
       Thread.current[:branch_sim_pos] = @__weel_sim += 1
       handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
       handlerwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
       [handlerwrapper, current_branch_sim_pos]
-    end
+    end #}}}
 
-    def __weel_sim_stop(what,handlerwrapper,current_branch_sim_pos,options={})
+    def __weel_sim_stop(what,handlerwrapper,current_branch_sim_pos,options={}) #{{{
       handlerwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
       Thread.current[:branch_sim_pos] = current_branch_sim_pos
-    end
+    end #}}}
 
   public
-    def __weel_finalize
+    def __weel_finalize #{{{
       __weel_recursive_join(@__weel_main)
       @__weel_state = :stopped
       @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
-    end
+    end #}}}
 
     def __weel_state=(newState)# {{{
       return @__weel_state if newState == @__weel_state && @__weel_state != :ready
@@ -880,6 +880,7 @@ class WEEL
       @__weel_state = newState
 
       if newState == :stopping || newState == :finishing
+        @__weel_status.nudge!
         __weel_recursive_continue(@__weel_main)
       end
 
