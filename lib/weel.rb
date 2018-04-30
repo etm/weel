@@ -674,7 +674,6 @@ class WEEL
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                p @__weel_status
                 handlerwrapper.manipulate(mr,finalize)
               end
               handlerwrapper.inform_manipulate_change(
