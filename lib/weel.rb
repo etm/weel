@@ -993,11 +993,11 @@ public
           @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(err.message),code)
         end
         if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
-          @dslr.__weel_state = :finished
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp.position }
           @dslr.__weel_positions.clear
           @dslr.__weel_handlerwrapper::inform_position_change(@dslr.__weel_handlerwrapper_args,ipc)
+          @dslr.__weel_state = :finished
         end
         if @dslr.__weel_state == :simulating
           @dslr.__weel_state = final_state
