@@ -84,7 +84,7 @@ class WEEL
       @__weel_endpoints = endpoints
       @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
       @__weel_status = status
-      @changed_status = status.id
+      @changed_status = "#{status.id}-#{status.message}"
       @changed_data = []
       @touched_data = []
       @changed_endpoints = []
@@ -112,7 +112,7 @@ class WEEL
     end
 
     def changed_status
-      @changed_status != status.id
+      @changed_status != "#{status.id}-#{status.message}"
     end
 
     def data
