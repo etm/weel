@@ -869,7 +869,6 @@ class WEEL
     def __weel_finalize #{{{
       __weel_recursive_join(@__weel_main)
       @__weel_state = :stopped
-      @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
     end #}}}
 
     def __weel_state=(newState)# {{{
