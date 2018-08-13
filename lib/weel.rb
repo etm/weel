@@ -523,7 +523,13 @@ class WEEL
         catch :escape do
           __weel_protect_yield(&Proc.new)
         end
-        return if __weel_is_in_search_mode
+        if __weel_is_in_search_mode
+          return
+        else
+          ### in case it was a :post_test we wake inside the loop so we can check
+          ### condition first thing
+          condition[1] = :pre_test
+        end
       end
       if __weel_sim
         cond = condition[0].is_a?(Proc) ? true : condition[0]
@@ -712,7 +718,13 @@ class WEEL
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-            passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
+            if @__weel_search_positions[position]
+              passthrough = @__weel_search_positions[position].passthrough
+              @__weel_search_positions[position].passthrough = nil
+            else
+              passthrough = nil
+            end
+
             handlerwrapper.activity_handle passthrough, params
             wp.passthrough = handlerwrapper.activity_passthrough_value
             unless wp.passthrough.nil?
