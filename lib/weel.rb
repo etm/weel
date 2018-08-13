@@ -714,6 +714,10 @@ class WEEL
 
             passthrough = @__weel_search_positions[position] ? @__weel_search_positions[position].passthrough : nil
             handlerwrapper.activity_handle passthrough, params
+            wp.passthrough = handlerwrapper.activity_passthrough_value
+            unless wp.passthrough.nil?
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => [wp.position]
+            end
             begin
               # with loop if catching Signal::Again
               # handshake call and wait until it finished
