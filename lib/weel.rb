@@ -575,7 +575,8 @@ class WEEL
     def stop(position) #{{{
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
-      __weel_progress searchmode, position, true
+      ipc, _ = __weel_progress searchmode, position, true
+      @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
       self.__weel_state = :stopping
     end #}}}
 
@@ -643,8 +644,7 @@ class WEEL
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
 
-      @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
-      wp
+      [ipc, wp]
     end #}}}
 
     def __weel_activity(position, type, endpoints, parameters, finalize, update=nil)# {{{
@@ -662,13 +662,18 @@ class WEEL
           return
         end
 
-        wp = __weel_progress searchmode, position
+        ipc, wp = __weel_progress searchmode, position
 
         # searchmode position is after, jump directly to vote_sync_after
-        raise Signal::Proceed if searchmode == :after
+        if searchmode == :after
+          @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+          raise Signal::Proceed
+        end
 
         case type
           when :manipulate
+            @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+
             raise Signal::Stop unless handlerwrapper.vote_sync_before
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -727,6 +732,7 @@ class WEEL
 
             handlerwrapper.activity_handle passthrough, params
             wp.passthrough = handlerwrapper.activity_passthrough_value
+            @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
             begin
               # with loop if catching Signal::Again
               # handshake call and wait until it finished
