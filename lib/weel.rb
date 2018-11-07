@@ -256,6 +256,11 @@ class WEEL
       @detail = detail
       @passthrough = passthrough
     end
+    def to_json(*args)
+      jsn = { 'position' => @position }
+      jsn['passtrough'] = @passthrough if @passthrough
+      jsn.to_json(*args)
+    end
   end # }}}
 
    class Continue # {{{
@@ -575,8 +580,7 @@ class WEEL
     def stop(position) #{{{
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
-      ipc, _ = __weel_progress searchmode, position, true
-      @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+      __weel_progress searchmode, position, true
       self.__weel_state = :stopping
     end #}}}
 
@@ -625,7 +629,7 @@ class WEEL
       ipc = {}
       if searchmode == :after
         wp = WEEL::Position.new(position, :after, nil)
-        ipc[:after] = [wp.position]
+        ipc[:after] = [wp]
       else
         if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
           @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
@@ -639,12 +643,13 @@ class WEEL
           ipc[:unmark] << Thread.current[:branch_position].position rescue nil
         end
         wp = WEEL::Position.new(position, skip ? :after : :at, nil)
-        ipc[skip ? :after : :at] = [wp.position]
+        ipc[skip ? :after : :at] = [wp]
       end
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
 
-      [ipc, wp]
+      @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+      wp
     end #}}}
 
     def __weel_activity(position, type, endpoints, parameters, finalize, update=nil)# {{{
@@ -662,18 +667,13 @@ class WEEL
           return
         end
 
-        ipc, wp = __weel_progress searchmode, position
+        wp = __weel_progress searchmode, position
 
         # searchmode position is after, jump directly to vote_sync_after
-        if searchmode == :after
-          @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
-          raise Signal::Proceed
-        end
+        raise Signal::Proceed if searchmode == :after
 
         case type
           when :manipulate
-            @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
-
             raise Signal::Stop unless handlerwrapper.vote_sync_before
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -696,7 +696,7 @@ class WEEL
               )
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => wp
             end
           when :call
             params = { }
@@ -732,7 +732,9 @@ class WEEL
 
             handlerwrapper.activity_handle passthrough, params
             wp.passthrough = handlerwrapper.activity_passthrough_value
-            @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+            unless wp.passthrough.nil?
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => wp
+            end
             begin
               # with loop if catching Signal::Again
               # handshake call and wait until it finished
@@ -777,7 +779,7 @@ class WEEL
             if handlerwrapper.activity_passthrough_value.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp.position]
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => wp
             end
         end
         raise Signal::Proceed
@@ -790,7 +792,7 @@ class WEEL
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
         wp.detail = :unmark
-        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp.position]
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => wp
       rescue Signal::StopSkipManipulate, Signal::Stop
         self.__weel_state = :stopping
       rescue Signal::Skip
@@ -1013,7 +1015,7 @@ public
         end
         if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
           ipc = { :unmark => [] }
-          @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp.position }
+          @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp }
           @dslr.__weel_positions.clear
           @dslr.__weel_handlerwrapper::inform_position_change(@dslr.__weel_handlerwrapper_args,ipc)
           @dslr.__weel_state = :finished
