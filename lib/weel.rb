@@ -215,6 +215,7 @@ class WEEL
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_handlerwrapper_error(arguments,err); end
     def self::inform_position_change(arguments,ipc); end
+    def self::modify_position_details(arguments); end
 
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
 
@@ -460,7 +461,7 @@ class WEEL
             @__weel_positions.delete Thread.current[:branch_position]
             begin
               ipc = {}
-              ipc[:unmark] = [Thread.current[:branch_position].position]
+              ipc[:unmark] = [Thread.current[:branch_position]]
               @__weel_handlerwrapper::inform_position_change(@__weel_handlerwrapper_args,ipc)
             end rescue nil
             Thread.current[:branch_position] = nil
@@ -640,13 +641,13 @@ class WEEL
         if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
           @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
           ipc[:unmark] ||= []
-          ipc[:unmark] << Thread.current[:branch_parent][:branch_position].position rescue nil
+          ipc[:unmark] << Thread.current[:branch_parent][:branch_position] rescue nil
           Thread.current[:branch_parent][:branch_position] = nil
         end
         if Thread.current[:branch_position]
           @__weel_positions.delete Thread.current[:branch_position]
           ipc[:unmark] ||= []
-          ipc[:unmark] << Thread.current[:branch_position].position rescue nil
+          ipc[:unmark] << Thread.current[:branch_position] rescue nil
         end
         wp = WEEL::Position.new(position, skip ? :after : :at, nil)
         ipc[skip ? :after : :at] = [wp]
@@ -739,7 +740,7 @@ class WEEL
             handlerwrapper.activity_handle passthrough, params
             wp.passthrough = handlerwrapper.activity_passthrough_value
             unless wp.passthrough.nil?
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => [wp]
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
             end
             begin
               # with loop if catching Signal::Again
@@ -784,6 +785,7 @@ class WEEL
             end while waitingresult == Signal::Again
             if handlerwrapper.activity_passthrough_value.nil?
               handlerwrapper.inform_activity_done
+              wp.passthrough = nil
               wp.detail = :after
               @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
             end
