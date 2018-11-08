@@ -256,10 +256,16 @@ class WEEL
       @detail = detail
       @passthrough = passthrough
     end
-    def to_json(*args)
+    def as_json(*)
       jsn = { 'position' => @position }
       jsn['passtrough'] = @passthrough if @passthrough
-      jsn.to_json(*args)
+      jsn
+    end
+    def to_s
+      as_json.to_s
+    end
+    def to_json(*args)
+      as_json.to_json(*args)
     end
   end # }}}
 
@@ -696,7 +702,7 @@ class WEEL
               )
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => wp
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
             end
           when :call
             params = { }
@@ -733,7 +739,7 @@ class WEEL
             handlerwrapper.activity_handle passthrough, params
             wp.passthrough = handlerwrapper.activity_passthrough_value
             unless wp.passthrough.nil?
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => wp
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => [wp]
             end
             begin
               # with loop if catching Signal::Again
@@ -779,7 +785,7 @@ class WEEL
             if handlerwrapper.activity_passthrough_value.nil?
               handlerwrapper.inform_activity_done
               wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => wp
+              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
             end
         end
         raise Signal::Proceed
@@ -792,7 +798,7 @@ class WEEL
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
         wp.detail = :unmark
-        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => wp
+        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp]
       rescue Signal::StopSkipManipulate, Signal::Stop
         self.__weel_state = :stopping
       rescue Signal::Skip
