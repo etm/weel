@@ -578,15 +578,18 @@ class WEEL
 
     def escape #{{{
       return if __weel_is_in_search_mode
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       throw :escape
     end #}}}
     def terminate #{{{
       return if __weel_is_in_search_mode
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       self.__weel_state = :finishing
     end #}}}
     def stop(position) #{{{
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       __weel_progress searchmode, position, true
       self.__weel_state = :stopping
     end #}}}
