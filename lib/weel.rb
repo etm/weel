@@ -950,7 +950,7 @@ public
     nil
   end #  }}}
 
-  # Get the state of execution (ready|running|stopping|stopped|finished|simulating)
+  # Get the state of execution (ready|running|stopping|stopped|finished|simulating|abandoned)
   def state # {{{
     @dslr.__weel_state
   end #  }}}
@@ -959,7 +959,7 @@ public
     state
   end # }}}
   def abandon # {{{
-    handlerwrapper::inform_state_change handlerwrapper_args, 'abandoned'
+    @dslr.__weel_state = :abandoned
   end # }}}
 
   # Set search positions
