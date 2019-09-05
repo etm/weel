@@ -958,6 +958,9 @@ public
     handlerwrapper::inform_state_change handlerwrapper_args, state
     state
   end # }}}
+  def abandon # {{{
+    handlerwrapper::inform_state_change handlerwrapper_args, 'abandoned'
+  end # }}}
 
   # Set search positions
   # set new_weel_search to a boolean (or anything else) to start the process from beginning (reset serach positions)
