@@ -80,7 +80,7 @@ class WEEL
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
-      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) }
+      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) } rescue nil
       @__weel_endpoints = endpoints
       @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
       @__weel_status = status
@@ -93,7 +93,8 @@ class WEEL
 
     def changed_data
       @touched_data.each do |e|
-        if Marshal.dump(@__weel_data[e]) != @__weel_data_orig[e]
+        td = Marshal.dump(@__weel_data[e]) rescue nil
+        if td != @__weel_data_orig[e]
           @changed_data << e
         end
       end
@@ -104,11 +105,11 @@ class WEEL
     end
 
     def original_data
-      @__weel_data_orig.transform_values{|val| Marshal.load(val) }
+      @__weel_data_orig.transform_values{|val| Marshal.load(val) rescue nil }
     end
 
     def original_endpoints
-      @__weel_endpoints_orig.transform_values{|val| Marshal.load(val) }
+      @__weel_endpoints_orig.transform_values{|val| Marshal.load(val) rescue nil }
     end
 
     def changed_status
@@ -950,13 +951,16 @@ public
     nil
   end #  }}}
 
-  # Get the state of execution (ready|running|stopping|stopped|finished|simulating)
+  # Get the state of execution (ready|running|stopping|stopped|finished|simulating|abandoned)
   def state # {{{
     @dslr.__weel_state
   end #  }}}
   def state_signal # {{{
     handlerwrapper::inform_state_change handlerwrapper_args, state
     state
+  end # }}}
+  def abandon # {{{
+    @dslr.__weel_state = :abandoned
   end # }}}
 
   # Set search positions
