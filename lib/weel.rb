@@ -16,29 +16,6 @@
 
 require 'thread'
 
-# OMG!111! deep cloning for ReadHashes
-class Object # {{{
-  def deep_clone
-    return @deep_cloning_obj if @deep_cloning
-    @deep_cloning_obj = clone
-    @deep_cloning_obj.instance_variables.each do |var|
-      val = @deep_cloning_obj.instance_variable_get(var)
-      begin
-        @deep_cloning = true
-        val = val.deep_clone
-      rescue TypeError
-        next
-      ensure
-        @deep_cloning = false
-      end
-      @deep_cloning_obj.instance_variable_set(var, val)
-    end
-    deep_cloning_obj = @deep_cloning_obj
-    @deep_cloning_obj = nil
-    deep_cloning_obj
-  end
-end #}}}
-
 class WEEL
   def initialize(*args)# {{{
     @dslr = DSLRealization.new
@@ -60,23 +37,34 @@ class WEEL
     class NoLongerNecessary < Exception; end
     class Again < Exception; end
     class Error < Exception; end
+    class Salvage < Exception; end
   end # }}}
 
-  class ReadStructure # {{{
-    def initialize(data,endpoints)
-      @__weel_data = data
-      @__weel_endpoints = endpoints
-      @changed_data = []
-      @changed_endpoints = []
+class ReadStructure # {{{
+  def initialize(data,endpoints)
+    @__weel_data = data.dup
+    @__weel_data.transform_values! do |v|
+      if v.is_a? XML::Smart::Dom
+        v.root.to_doc
+      else
+        begin
+          Marshal.load(Marshal.dump(v))
+        rescue
+          v.to_s rescue nil
+        end
+      end
     end
+    @__weel_endpoints = endpoints.dup
+    @__weel_endpoints.transform_values!{ |v| v.dup }
+  end
 
-    def data
-      ReadHash.new(@__weel_data)
-    end
-    def endpoints
-      ReadHash.new(@__weel_endpoints)
-    end
-  end # }}}
+  def data
+    ReadHash.new(@__weel_data)
+  end
+  def endpoints
+    ReadHash.new(@__weel_endpoints)
+  end
+end # }}}
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status)
       @__weel_data = data
@@ -198,15 +186,21 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      if args.empty? && @__weel_values.key?(name)
-        if @__weel_sim
-          "➤#{name}"
-        else
-          @__weel_values[name]
-        end
-        #TODO dont let user change stuff e.g. if return value is an array (deep clone and/or deep freeze it?)
+      if @__weel_sim
+        "➤#{name}"
       else
-        nil
+        if args.empty? && @__weel_values.key?(name)
+          @__weel_values[name]
+        elsif name.to_s[-1..-1] == "=" && args.length == 1
+          temp = name.to_s[0..-2]
+          @__weel_values[temp.to_sym] = args[0]
+        elsif name.to_s == "[]=" && args.length == 2
+          @__weel_values[args[0]] = args[1]
+        elsif name.to_s == "[]" && args.length == 1
+          @__weel_values[args[0]]
+        else
+          nil
+        end
       end
     end
   end # }}}
@@ -219,6 +213,8 @@ class WEEL
     def self::modify_position_details(arguments); end
 
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
+
+    def prepare(readonly, endpoints, parameters); parameters; end
 
     def activity_handle(passthrough, parameters); end
     def activity_manipulate_handle(parameters); end
@@ -352,8 +348,8 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, &finalizeblk) #{{{
-      __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update)
+    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, prepare: nil, salvage: nil, &finalizeblk) #{{{
+      __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update,prepare,salvage)
     end #}}}
     # when two params, second param always script
     # when block and two params, parameters stays
@@ -663,7 +659,7 @@ class WEEL
       wp
     end #}}}
 
-    def __weel_activity(position, type, endpoints, parameters, finalize, update=nil)# {{{
+    def __weel_activity(position, type, endpoint, parameters, finalize=nil, update=nil, prepare=nil, salvage=nil)# {{{
       position = __weel_position_test position
       begin
         searchmode = __weel_is_in_search_mode(position)
@@ -671,10 +667,10 @@ class WEEL
         return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, endpoints.is_a?(Array) ? endpoints.map{ |ep| @__weel_endpoints[ep] }.compact : @__weel_endpoints[endpoints], position, Thread.current[:continue]
+        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoints => endpoints,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
+          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoint => endpoint,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
           return
         end
 
@@ -731,6 +727,15 @@ class WEEL
               else
                 raise("invalid parameters")
             end
+            rs = ReadStructure.new(@__weel_data,@__weel_endpoints)
+            if prepare
+              if prepare.is_a?(Proc)
+                rs.instance_exec &prepare
+              elsif prepare.is_a?(String)
+                rs.instance_eval prepare
+              end
+            end
+            params = handlerwrapper.prepare(rs,endpoint,params)
             raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -763,7 +768,13 @@ class WEEL
                 raise Signal::Proceed
               end
 
-              code = waitingresult == Signal::Again ? update : finalize
+              code = if waitingresult == WEEL::Signal::Again
+                update
+              elsif waitingresult == WEEL::Signal::Salvage
+                salvage
+              else
+                finalize
+              end
               if code.is_a?(Proc) || code.is_a?(String)
                 handlerwrapper.inform_activity_manipulate
                 if code.is_a?(Proc)
