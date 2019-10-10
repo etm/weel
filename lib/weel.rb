@@ -771,7 +771,7 @@ end # }}}
               code = if waitingresult == WEEL::Signal::Again
                 update
               elsif waitingresult == WEEL::Signal::Salvage
-                salvage
+                salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
               else
                 finalize
               end
