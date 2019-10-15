@@ -243,7 +243,7 @@ end # }}}
     def callback(result=nil,options={}); end
 
     def test_condition(mr,code); mr.instance_eval(code); end
-    def manipulate(mr,code,result=nil); mr.instance_eval(code); end
+    def manipulate(mr,code,result=nil,options=nil); mr.instance_eval(code); end
   end  # }}}
 
   class Position # {{{
@@ -706,104 +706,94 @@ end # }}}
               @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
             end
           when :call
-            params = { }
-            case parameters
-              when Hash
-                parameters.each do |k,p|
-                  if p.is_a?(Symbol) && @__weel_data.include?(p)
-                    params[k] = @__weel_data[p]
-                  else
-                    params[k] = p
-                  end
-                end
-              when Array
-                parameters.each_with_index do |p,i|
-                  if p.is_a?(Symbol) && @__weel_data.include?(p)
-                    params[p] = @__weel_data[p]
-                  else
-                    params[i] = p
-                  end
-                end
-              else
-                raise("invalid parameters")
-            end
-            rs = ReadStructure.new(@__weel_data,@__weel_endpoints)
-            if prepare
-              if prepare.is_a?(Proc)
-                rs.instance_exec &prepare
-              elsif prepare.is_a?(String)
-                rs.instance_eval prepare
-              end
-            end
-            params = handlerwrapper.prepare(rs,endpoint,params)
-            raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
-            raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
-
-            if @__weel_search_positions[position]
-              passthrough = @__weel_search_positions[position].passthrough
-              @__weel_search_positions[position].passthrough = nil
-            else
-              passthrough = nil
-            end
-
-            handlerwrapper.activity_handle passthrough, params
-            wp.passthrough = handlerwrapper.activity_passthrough_value
-            unless wp.passthrough.nil?
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
-            end
             begin
-              # with loop if catching Signal::Again
-              # handshake call and wait until it finished
-              waitingresult = nil
-              waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
-              raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
-
-              if Thread.current[:nolongernecessary]
-                handlerwrapper.activity_no_longer_necessary
-                raise Signal::NoLongerNecessary
-              end
-              if self.__weel_state == :stopping || self.__weel_state == :finishing
-                handlerwrapper.activity_stop
-                wp.passthrough = handlerwrapper.activity_passthrough_value
-                raise Signal::Proceed
-              end
-
-              code = if waitingresult == WEEL::Signal::Again
-                update
-              elsif waitingresult == WEEL::Signal::Salvage
-                salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
-              else
-                finalize
-              end
-              if code.is_a?(Proc) || code.is_a?(String)
-                handlerwrapper.inform_activity_manipulate
-                if code.is_a?(Proc)
-                  mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  case code.arity
-                    when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                    when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                    else
-                      mr.instance_exec(&code)
+              again = catch Signal::Again do
+                rs = ReadStructure.new(@__weel_data,@__weel_endpoints)
+                if prepare
+                  if prepare.is_a?(Proc)
+                    rs.instance_exec &prepare
+                  elsif prepare.is_a?(String)
+                    rs.instance_eval prepare
                   end
-                elsif code.is_a?(String)
-                  mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                  handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value)
                 end
-                handlerwrapper.inform_manipulate_change(
-                  (mr.changed_status ? @__weel_status : nil),
-                  (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                  (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
-                  @__weel_data,
-                  @__weel_endpoints
-                )
+                params = handlerwrapper.prepare(rs,endpoint,parameters)
+                raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
+                raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
+
+                if @__weel_search_positions[position]
+                  passthrough = @__weel_search_positions[position].passthrough
+                  @__weel_search_positions[position].passthrough = nil
+                else
+                  passthrough = nil
+                end
+
+                handlerwrapper.activity_handle passthrough, params
+                wp.passthrough = handlerwrapper.activity_passthrough_value
+                unless wp.passthrough.nil?
+                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
+                end
+                begin
+                  # with loop if catching Signal::Again
+                  # handshake call and wait until it finished
+                  waitingresult = nil
+                  waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+                  raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
+
+                  if Thread.current[:nolongernecessary]
+                    handlerwrapper.activity_no_longer_necessary
+                    raise Signal::NoLongerNecessary
+                  end
+                  if self.__weel_state == :stopping || self.__weel_state == :finishing
+                    handlerwrapper.activity_stop
+                    wp.passthrough = handlerwrapper.activity_passthrough_value
+                    raise Signal::Proceed
+                  end
+
+                  code = if waitingresult == WEEL::Signal::Again
+                    update
+                  elsif waitingresult == WEEL::Signal::Salvage
+                    salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
+                  else
+                    finalize
+                  end
+                  if code.is_a?(Proc) || code.is_a?(String)
+                    handlerwrapper.inform_activity_manipulate
+                    if code.is_a?(Proc)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                      case code.arity
+                        when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                        when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                        else
+                          ma = catch Signal::Again do
+                            mr.instance_exec(&code)
+                            'yes' # ma sadly will have nil when i just throw
+                          end
+                      end
+                    elsif code.is_a?(String)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                      ma = catch Signal::Again do
+                        handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,handlerwrapper.activity_result_options)
+                        'yes' # ma sadly will have nil when i just throw
+                      end
+                    end
+                    handlerwrapper.inform_manipulate_change(
+                      (mr.changed_status ? @__weel_status : nil),
+                      (mr.changed_data.any? ? mr.changed_data.uniq : nil),
+                      (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
+                      @__weel_data,
+                      @__weel_endpoints
+                    )
+                    throw(Signal::Again, Signal::Again) if ma.nil?
+                  end
+                end while waitingresult == Signal::Again
+                if handlerwrapper.activity_passthrough_value.nil?
+                  handlerwrapper.inform_activity_done
+                  wp.passthrough = nil
+                  wp.detail = :after
+                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
+                end
               end
-            end while waitingresult == Signal::Again
-            if handlerwrapper.activity_passthrough_value.nil?
-              handlerwrapper.inform_activity_done
-              wp.passthrough = nil
-              wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
-            end
+            end while again == Signal::Again
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
