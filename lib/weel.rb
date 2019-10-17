@@ -216,7 +216,7 @@ end # }}}
 
     def prepare(readonly, endpoints, parameters); parameters; end
 
-    def activity_handle(passthrough, parameters); end
+    def activity_handle(passthrough, parameters, replay=false); end
     def activity_manipulate_handle(parameters); end
 
     def activity_result_value; end
@@ -746,7 +746,7 @@ end # }}}
               passthrough = nil
             end
 
-            handlerwrapper.activity_handle passthrough, params
+            handlerwrapper.activity_handle passthrough, params, @__weel_replay
             wp.passthrough = handlerwrapper.activity_passthrough_value
             unless wp.passthrough.nil?
               @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
@@ -925,6 +925,7 @@ end # }}}
       if newState == :stopping || newState == :finishing
         @__weel_status.nudge!
         __weel_recursive_continue(@__weel_main)
+        @dslr.__weel_replay = false
       end
 
       @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
@@ -1076,6 +1077,11 @@ public
       end
     end
   end # }}}
+
+  def replay
+    @dslr.__weel_replay = true
+    start
+  end
 
   def sim # {{{
     stat = @dslr.__weel_state
