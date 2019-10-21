@@ -214,9 +214,9 @@ end # }}}
 
     def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
 
-    def prepare(readonly, endpoints, parameters); parameters; end
+    def prepare(readonly, endpoints, parameters, replay=false); parameters; end
 
-    def activity_handle(passthrough, parameters, replay=false); end
+    def activity_handle(passthrough, parameters); end
     def activity_manipulate_handle(parameters); end
 
     def activity_result_value; end
@@ -338,9 +338,10 @@ end # }}}
       @__weel_handlerwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
+      @__weel_replay = false
       @__weel_sim = -1
     end #}}}
-    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args
+    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args, :__weel_replay
     attr_reader :__weel_state, :__weel_status
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
@@ -716,7 +717,7 @@ end # }}}
                     rs.instance_eval prepare
                   end
                 end
-                params = handlerwrapper.prepare(rs,endpoint,parameters)
+                params = handlerwrapper.prepare(rs,endpoint,parameters,@__weel_replay)
                 raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -726,7 +727,7 @@ end # }}}
                 else
                   passthrough = nil
                 end
-                handlerwrapper.activity_handle passthrough, params, @__weel_replay
+                handlerwrapper.activity_handle passthrough, params
                 wp.passthrough = handlerwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
                   @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
