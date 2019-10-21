@@ -44,7 +44,7 @@ class ReadStructure # {{{
   def initialize(data,endpoints)
     @__weel_data = data.dup
     @__weel_data.transform_values! do |v|
-      if v.is_a? XML::Smart::Dom
+      if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
         v.root.to_doc
       else
         begin
@@ -814,7 +814,7 @@ end # }}}
         handlerwrapper.inform_activity_failed se
         self.__weel_state = :stopping
       rescue => err
-        handlerwrapper.inform_activity_failed err
+        @__weel_handlerwrapper::inform_handlerwrapper_error @__weel_handlerwrapper_args, err
         self.__weel_state = :stopping
       ensure
         Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
@@ -915,7 +915,7 @@ end # }}}
       if newState == :stopping || newState == :finishing
         @__weel_status.nudge!
         __weel_recursive_continue(@__weel_main)
-        @dslr.__weel_replay = false
+        __weel_replay = false
       end
 
       @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state

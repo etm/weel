@@ -1,13 +1,13 @@
 # This file is part of WEEL.
-# 
+#
 # WEEL is free software: you can redistribute it and/or modify it under the terms
 # of the GNU General Public License as published by the Free Software Foundation,
 # either version 3 of the License, or (at your option) any later version.
-# 
+#
 # WEEL is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along with
 # WEEL (file COPYING in the main directory).  If not, see
 # <http://www.gnu.org/licenses/>.
@@ -15,12 +15,21 @@
 require "pp"
 
 class SimpleHandlerWrapper < WEEL::HandlerWrapperBase
-  def initialize(args,endpoint=nil,position=nil,continue=nil)
+  def self::inform_state_change(arguments,newstate); puts "#{newstate}: #{arguments}"; end
+  def self::inform_syntax_error(arguments,err,code); puts "Syntax error: #{err}"; end
+  def self::inform_handlerwrapper_error(arguments,err); puts "Handlerwrapper error: #{err}"; end
+
+  def initialize(args,position=nil,continue=nil)
     @__myhandler_stopped = false
     @__myhandler_position = position
     @__myhandler_continue = continue
-    @__myhandler_endpoint = endpoint
+    @__myhandler_endpoint = nil
     @__myhandler_returnValue = nil
+  end
+
+  def prepare(readonly, endpoints, parameters, replay=false)
+    @__myhandler_endpoints  = endpoints
+    parameters
   end
 
   # executes a ws-call to the given endpoint with the given parameters. the call
@@ -35,7 +44,7 @@ class SimpleHandlerWrapper < WEEL::HandlerWrapperBase
     @__myhandler_returnValue = 'Handler_Dummy_Result'
     @__myhandler_continue.continue
   end
- 
+
   # returns the result of the last handled call
   def activity_result_value
     @__myhandler_returnValue
