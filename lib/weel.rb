@@ -288,7 +288,7 @@ end # }}}
      end
    end #}}}
 
-  def self::search(weel_search)# {{{
+  def self::search(*weel_search)# {{{
     define_method :initialize_search do
       self.search weel_search
     end
