@@ -20,4 +20,6 @@ class SimpleWorkflow < WEEL
 end
 ```
 
-HandlerWrapper are classes that implement communication Protocols. Endpoints hold the communication targets and can be reused throughout the control flow. Data are control flow scoped variables.
+HandlerWrappers are classes that implement communication protocols. Endpoints hold the communication targets and can be reused throughout the control flow. Data elements are control flow scoped variables.
+
+For a evaluation and description of all available control flow statements, see https://arxiv.org/pdf/1003.3330.pdf.
