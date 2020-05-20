@@ -22,6 +22,14 @@ end
 
 HandlerWrappers are classes that implement communication protocols. Endpoints hold the communication targets and can be reused throughout the control flow. Data elements are control flow scoped variables.
 
+Please check out the examples directory to see a minimal set of necessary artefacts.
+
 # Further Reading
 
-For a evaluation and description of all available control flow statements, see https://arxiv.org/pdf/1003.3330.pdf.
+For an evaluation and description of all available control flow statements, see https://arxiv.org/pdf/1003.3330.pdf.
+
+# Installation
+
+```bash
+gem install weel
+```
