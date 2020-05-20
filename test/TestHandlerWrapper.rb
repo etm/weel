@@ -8,14 +8,22 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
     $short_track << "E"
     raise(err)
   end
+  def self::inform_handlerwrapper_error(arguments,err)
+    $long_track += "HW ERROR: #{err}\n"
+    $short_track << "E"
+  end
 
-  def initialize(args,endpoint=nil,position=nil,continue=nil)
+  def initialize(args,position=nil,continue=nil)
     @__myhandler_stopped = false
     @__myhandler_position = position
     @__myhandler_continue = continue
-    @__myhandler_endpoint = endpoint
     @__myhandler_returnValue = nil
     @t = nil
+  end
+
+  def prepare(readonly, endpoints, parameters, replay=false)
+    @__myhandler_endpoint = readonly.endpoints[endpoints]
+    parameters
   end
 
   # executes a ws-call to the given endpoint with the given parameters. the call
@@ -68,7 +76,7 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
   # information about how to continue the call. This passthrough-value is given
   # to activity_handle if the workflow is configured to do so.
   def activity_passthrough_value #{{{
-    "SOME passthrough"
+    nil
   end #}}}
 
   # Called if the execution of the actual activity_handle is not necessary anymore

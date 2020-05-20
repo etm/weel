@@ -14,14 +14,14 @@ module SimTestMixin #{{{
   def wf_assert(what,cond=true)
     if cond
       assert($long_track.include?(what),"Missing \"#{what}\":\n#{$long_track}")
-    else  
+    else
       assert(!$long_track.include?(what),"Missing \"#{what}\":\n#{$long_track}")
     end
   end
   def wf_sassert(what,cond=true)
     if cond
       assert($short_track.include?(what),"#{$short_track}\nNot Present \"#{what}\":\n#{$long_track}")
-    else  
+    else
       assert(!$short_track.include?(what),"#{$short_track}\nNot Present \"#{what}\":\n#{$long_track}")
     end
   end
@@ -29,7 +29,6 @@ module SimTestMixin #{{{
     assert($short_track =~ /#{pat}/,"Somehow executed different #{$short_track} should be '#{pat}'")
   end
 end  #}}}
-
 
 module TestMixin #{{{
   def setup
@@ -47,14 +46,14 @@ module TestMixin #{{{
   def wf_assert(what,cond=true)
     if cond
       assert($long_track.include?(what),"Missing \"#{what}\":\n#{$long_track}")
-    else  
+    else
       assert(!$long_track.include?(what),"Missing \"#{what}\":\n#{$long_track}")
     end
   end
   def wf_sassert(what,cond=true)
     if cond
       assert($short_track.include?(what),"#{$short_track}\nNot Present \"#{what}\":\n#{$long_track}")
-    else  
+    else
       assert(!$short_track.include?(what),"#{$short_track}\nNot Present \"#{what}\":\n#{$long_track}")
     end
   end

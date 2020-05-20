@@ -209,10 +209,9 @@ end # }}}
     def self::inform_state_change(arguments,newstate); end
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_handlerwrapper_error(arguments,err); end
-    def self::inform_position_change(arguments,ipc); end
-    def self::modify_position_details(arguments); end
+    def self::inform_position_change(arguments,ipc={}); end
 
-    def initialize(arguments,endpoint=nil,position=nil,continue=nil); end
+    def initialize(arguments,position=nil,continue=nil); end
 
     def prepare(readonly, endpoints, parameters, replay=false); parameters; end
 
@@ -220,6 +219,7 @@ end # }}}
     def activity_manipulate_handle(parameters); end
 
     def activity_result_value; end
+    def activity_result_options; end
 
     def activity_stop; end
     def activity_passthrough_value; end
@@ -364,8 +364,8 @@ end # }}}
     # Parallel DSL-Construct
     # Defines Workflow paths that can be executed parallel.
     # May contain multiple branches (parallel_branch)
-    def parallel(type=nil)# {{{
-      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+    def parallel(type=nil,&block)# {{{
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
       Thread.current[:branches] = []
       Thread.current[:branch_finished_count] = 0
@@ -374,7 +374,7 @@ end # }}}
 
       hw, pos = __weel_sim_start(:parallel) if __weel_sim
 
-      __weel_protect_yield(&Proc.new)
+      __weel_protect_yield(&block)
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       1.upto Thread.current[:branches].size do
@@ -387,10 +387,10 @@ end # }}}
         if Thread.current[:branch_search] == false
           thread[:branch_search] = false
         end
-        thread[:start_event].continue
+        thread[:start_event]&.continue # sometimes start event might not even exist yet (i.e. race condition)
       end
 
-      Thread.current[:branch_event].wait
+      Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
       __weel_sim_stop(:parallel,hw,pos) if __weel_sim
 
@@ -410,7 +410,7 @@ end # }}}
     end # }}}
 
     # Defines a branch of a parallel-Construct
-    def parallel_branch(*vars)# {{{
+    def parallel_branch(*vars,&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
@@ -436,14 +436,16 @@ end # }}}
           Thread.current[:alternative_mode] = [branch_parent[:alternative_mode].last]
         end
         branch_parent[:branch_event].continue
-        Thread.current[:start_event].wait
+        Thread.current[:start_event].wait unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
 
         if __weel_sim
           handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
           handlerwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
         end
 
-        __weel_protect_yield(*local, &Proc.new)
+        unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+          __weel_protect_yield(*local, &block)
+        end
 
         __weel_sim_stop(:parallel_branch,handlerwrapper,current_branch_sim_pos) if __weel_sim
 
@@ -454,7 +456,7 @@ end # }}}
             branch_parent[:branch_event].continue
           end
         end
-        if self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
+        unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
           if Thread.current[:branch_position]
             @__weel_positions.delete Thread.current[:branch_position]
             begin
@@ -471,14 +473,14 @@ end # }}}
     # Choose DSL-Construct
     # Defines a choice in the Workflow path.
     # May contain multiple execution alternatives
-    def choose(mode=:inclusive) # {{{
+    def choose(mode=:inclusive,&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       Thread.current[:alternative_executed] ||= []
       Thread.current[:alternative_mode] ||= []
       Thread.current[:alternative_executed] << false
       Thread.current[:alternative_mode] << mode
       hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode].last) if __weel_sim
-      __weel_protect_yield(&Proc.new)
+      __weel_protect_yield(&block)
       __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode].last) if __weel_sim
       Thread.current[:alternative_executed].pop
       Thread.current[:alternative_mode].pop
@@ -488,7 +490,7 @@ end # }}}
     # Defines a possible choice of a choose-Construct
     # Block is executed if condition == true or
     # searchmode is active (to find the starting position)
-    def alternative(condition,args={})# {{{
+    def alternative(condition,args={},&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
@@ -499,18 +501,18 @@ end # }}}
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end
-      __weel_protect_yield(&Proc.new) if __weel_is_in_search_mode || __weel_sim || condition
+      __weel_protect_yield(&block) if __weel_is_in_search_mode || __weel_sim || condition
       __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
     end # }}}
-    def otherwise(args={}) # {{{
+    def otherwise(args={},&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       hw, pos = __weel_sim_start(:otherwise,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
-      __weel_protect_yield(&Proc.new) if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
+      __weel_protect_yield(&block) if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
       __weel_sim_stop(:otherwise,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
     end # }}}
 
     # Defines a critical block (=Mutex)
-    def critical(id)# {{{
+    def critical(id,&block)# {{{
       @__weel_critical ||= Mutex.new
       semaphore = nil
       @__weel_critical.synchronize do
@@ -519,19 +521,19 @@ end # }}}
         @__weel_critical_sections[id] = semaphore if id
       end
       semaphore.synchronize do
-        __weel_protect_yield(&Proc.new)
+        __weel_protect_yield(&block)
       end
     end # }}}
 
     # Defines a Cycle (loop/iteration)
-    def loop(condition,args={})# {{{
+    def loop(condition,args={},&block)# {{{
       unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       if __weel_is_in_search_mode
         catch :escape do
-          __weel_protect_yield(&Proc.new)
+          __weel_protect_yield(&block)
         end
         if __weel_is_in_search_mode
           return
@@ -545,7 +547,7 @@ end # }}}
         cond = condition[0].is_a?(Proc) ? true : condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
         catch :escape do
-          __weel_protect_yield(&Proc.new)
+          __weel_protect_yield(&block)
         end
         __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
         return
@@ -554,11 +556,11 @@ end # }}}
         case condition[1]
           when :pre_test
             while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
-              __weel_protect_yield(&Proc.new)
+              __weel_protect_yield(&block)
             end
           when :post_test
             begin
-              __weel_protect_yield(&Proc.new)
+              __weel_protect_yield(&block)
             end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
         end
       end
@@ -712,7 +714,7 @@ end # }}}
                 rs = ReadStructure.new(@__weel_data,@__weel_endpoints)
                 if prepare
                   if prepare.is_a?(Proc)
-                    rs.instance_exec &prepare
+                    rs.instance_exec(&prepare)
                   elsif prepare.is_a?(String)
                     rs.instance_eval prepare
                   end
@@ -760,14 +762,14 @@ end # }}}
                     handlerwrapper.inform_activity_manipulate
                     if code.is_a?(Proc)
                       mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
-                      case code.arity
-                        when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                        when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                        else
-                          ma = catch Signal::Again do
+                      ma = catch Signal::Again do
+                        case code.arity
+                          when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                          when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                          else
                             mr.instance_exec(&code)
-                            'yes' # ma sadly will have nil when i just throw
-                          end
+                        end
+                        'yes' # ma sadly will have nil when i just throw
                       end
                     elsif code.is_a?(String)
                       mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)

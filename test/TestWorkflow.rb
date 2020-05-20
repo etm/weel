@@ -9,12 +9,12 @@ class TestWorkflow < WEEL
   endpoint :stop => 'stop it'
   endpoint :again => 'again'
   data :x => 'begin_'
-  
+
   control flow do
     call :a1_1, :endpoint1 do |result|
       data.x += "#{result}"
     end
-    parallel :wait => 2 do
+    parallel :wait do
       parallel_branch do
         call :a2_1_1, :endpoint1
       end

@@ -6,7 +6,7 @@ class TestAdventureSearch < Test::Unit::TestCase
 
   def test_search_adventure
     @wf.data[:oee] = 0.25
-    @wf.description = File.read(::File.dirname(__FILE__) + '/dsl1')
+    @wf.description = File.read(__dir__ + '/dsl1')
     @wf.search [WEEL::Position.new(:a2, :at), WEEL::Position.new(:a13, :at)]
     @wf.start.join
 
