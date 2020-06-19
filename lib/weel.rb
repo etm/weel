@@ -59,12 +59,17 @@ class WEEL
       @additional = additional
     end
 
-    def method_missing(m,args,&block)
-      if @additional.exists?(m)
+    def method_missing(m,*args,&block)
+      if @additional.include?(m)
         begin
-          Marshal.load(Marshal.dump(@aditional[m]))
+          tmp = Marshal.load(Marshal.dump(@additional[m]))
+          if tmp.is_a? Hash
+            ReadHash.new(tmp)
+          else
+            tmp
+          end
         rescue
-          v.to_s rescue nil
+          m.to_s rescue nil
         end
       end
     end
@@ -90,12 +95,17 @@ class WEEL
       @additional = additional
     end
 
-    def method_missing(m,args,&block)
-      if @additional.exists?(m)
+    def method_missing(m,*args,&block)
+      if @additional.include?(m)
         begin
-          Marshal.load(Marshal.dump(@aditional[m]))
+          tmp = Marshal.load(Marshal.dump(@additional[m]))
+          if tmp.is_a? Hash
+            ReadHash.new(tmp)
+          else
+            tmp
+          end
         rescue
-          v.to_s rescue nil
+          m.to_s rescue nil
         end
       end
     end
