@@ -40,33 +40,43 @@ class WEEL
     class Salvage < Exception; end
   end # }}}
 
-class ReadStructure # {{{
-  def initialize(data,endpoints)
-    @__weel_data = data.dup
-    @__weel_data.transform_values! do |v|
-      if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
-        v.root.to_doc
-      else
+  class ReadStructure # {{{
+    def initialize(data,endpoints,additional)
+      @__weel_data = data.dup
+      @__weel_data.transform_values! do |v|
+        if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
+          v.root.to_doc
+        else
+          begin
+            Marshal.load(Marshal.dump(v))
+          rescue
+            v.to_s rescue nil
+          end
+        end
+      end
+      @__weel_endpoints = endpoints.dup
+      @__weel_endpoints.transform_values!{ |v| v.dup }
+      @additional = additional
+    end
+
+    def method_missing(m,args,&block)
+      if @additional.exists?(m)
         begin
-          Marshal.load(Marshal.dump(v))
+          Marshal.load(Marshal.dump(@aditional[m]))
         rescue
           v.to_s rescue nil
         end
       end
     end
-    @__weel_endpoints = endpoints.dup
-    @__weel_endpoints.transform_values!{ |v| v.dup }
-  end
-
-  def data
-    ReadHash.new(@__weel_data)
-  end
-  def endpoints
-    ReadHash.new(@__weel_endpoints)
-  end
-end # }}}
+    def data
+      ReadHash.new(@__weel_data)
+    end
+    def endpoints
+      ReadHash.new(@__weel_endpoints)
+    end
+  end # }}}
   class ManipulateStructure # {{{
-    def initialize(data,endpoints,status)
+    def initialize(data,endpoints,status,additional)
       @__weel_data = data
       @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) } rescue nil
       @__weel_endpoints = endpoints
@@ -77,6 +87,17 @@ end # }}}
       @touched_data = []
       @changed_endpoints = []
       @touched_endpoints = []
+      @additional = additional
+    end
+
+    def method_missing(m,args,&block)
+      if @additional.exists?(m)
+        begin
+          Marshal.load(Marshal.dump(@aditional[m]))
+        rescue
+          v.to_s rescue nil
+        end
+      end
     end
 
     def changed_data
@@ -214,6 +235,7 @@ end # }}}
     def initialize(arguments,position=nil,continue=nil); end
 
     def prepare(readonly, endpoints, parameters, replay=false); parameters; end
+    def additional; {}; end
 
     def activity_handle(passthrough, parameters); end
     def activity_manipulate_handle(parameters); end
@@ -622,7 +644,7 @@ end # }}}
     def __weel_eval_condition(condition) #{{{
       begin
         handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition.is_a?(Proc)
-        condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints),condition)
+        condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,handlerwrapper.additional),condition)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
@@ -691,10 +713,10 @@ end # }}}
               handlerwrapper.activity_manipulate_handle(parameters)
               handlerwrapper.inform_activity_manipulate
               if finalize.is_a?(Proc)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
                 handlerwrapper.manipulate(mr,finalize)
               end
               handlerwrapper.inform_manipulate_change(
@@ -711,7 +733,7 @@ end # }}}
           when :call
             begin
               again = catch Signal::Again do
-                rs = ReadStructure.new(@__weel_data,@__weel_endpoints)
+                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,handlerwrapper.additional)
                 if prepare
                   if prepare.is_a?(Proc)
                     rs.instance_exec(&prepare)
@@ -761,7 +783,7 @@ end # }}}
                   if code.is_a?(Proc) || code.is_a?(String)
                     handlerwrapper.inform_activity_manipulate
                     if code.is_a?(Proc)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
                       ma = catch Signal::Again do
                         case code.arity
                           when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
@@ -772,7 +794,7 @@ end # }}}
                         'yes' # ma sadly will have nil when i just throw
                       end
                     elsif code.is_a?(String)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
                       ma = catch Signal::Again do
                         handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,handlerwrapper.activity_result_options)
                         'yes' # ma sadly will have nil when i just throw
