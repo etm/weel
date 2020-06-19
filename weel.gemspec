@@ -9,9 +9,9 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>=2.6.0'
 
-  s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING Changelog FEATURES INSTALL Rakefile weel.gemspec README AUTHORS)
+  s.files            = Dir['{example/**/*,lib/weel.rb}'] + %w(COPYING Changelog FEATURES INSTALL Rakefile weel.gemspec README.md AUTHORS)
   s.require_path     = 'lib'
-  s.extra_rdoc_files = ['README']
+  s.extra_rdoc_files = ['README.md']
   s.test_files       = Dir['{test/*,test/*/tc_*.rb}']
 
   s.authors          = ['Juergen eTM Mangler','Gerhard Stuermer']
