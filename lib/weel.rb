@@ -288,7 +288,7 @@ class WEEL
     end
     def as_json(*)
       jsn = { 'position' => @position }
-      jsn['passtrough'] = @passthrough if @passthrough
+      jsn['passthrough'] = @passthrough if @passthrough
       jsn
     end
     def to_s
@@ -764,7 +764,7 @@ class WEEL
                 handlerwrapper.activity_handle passthrough, params
                 wp.passthrough = handlerwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
-                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
+                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => [wp]
                 end
                 begin
                   # with loop if catching Signal::Again
