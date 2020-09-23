@@ -669,24 +669,26 @@ class WEEL
 
     def __weel_progress(searchmode, position, skip=false) #{{{
       ipc = {}
-      if searchmode == :after
-        wp = WEEL::Position.new(position, :after, nil)
-        ipc[:after] = [wp]
-      else
-        if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
-          @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
-          ipc[:unmark] ||= []
-          ipc[:unmark] << Thread.current[:branch_parent][:branch_position] rescue nil
-          Thread.current[:branch_parent][:branch_position] = nil
-        end
-        if Thread.current[:branch_position]
-          @__weel_positions.delete Thread.current[:branch_position]
-          ipc[:unmark] ||= []
-          ipc[:unmark] << Thread.current[:branch_position] rescue nil
-        end
-        wp = WEEL::Position.new(position, skip ? :after : :at, nil)
-        ipc[skip ? :after : :at] = [wp]
+      if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
+        @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
+        ipc[:unmark] ||= []
+        ipc[:unmark] << Thread.current[:branch_parent][:branch_position] rescue nil
+        Thread.current[:branch_parent][:branch_position] = nil
       end
+      if Thread.current[:branch_position]
+        @__weel_positions.delete Thread.current[:branch_position]
+        ipc[:unmark] ||= []
+        ipc[:unmark] << Thread.current[:branch_position] rescue nil
+      end
+      wp = WEEL::Position.new(position, skip ? :after : :at, nil)
+      ipc[skip ? :after : :at] = [wp]
+
+      @__weel_search_positions.each do |k,ele| # some may still be in active search but lets unmark them for good measure
+        ipc[:unmark] ||= []
+        ipc[:unmark] << ele
+        true
+      end
+
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
 
@@ -764,7 +766,7 @@ class WEEL
                 handlerwrapper.activity_handle passthrough, params
                 wp.passthrough = handlerwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
-                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :at => [wp]
+                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
                 end
                 begin
                   # with loop if catching Signal::Again
@@ -910,7 +912,7 @@ class WEEL
           branch = branch[:branch_parent]
           branch[:branch_search] = false
         end
-        @__weel_search_positions[position].detail == :after ? :after : false
+        @__weel_search_positions[position].detail == :after
       else
         branch[:branch_search] = true
       end
