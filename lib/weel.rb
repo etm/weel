@@ -782,7 +782,7 @@ class WEEL
                   if self.__weel_state == :stopping || self.__weel_state == :finishing
                     handlerwrapper.activity_stop
                     wp.passthrough = handlerwrapper.activity_passthrough_value
-                    raise Signal::Proceed
+                    raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
                   end
 
                   code = if waitingresult == WEEL::Signal::Again
