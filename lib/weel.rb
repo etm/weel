@@ -299,6 +299,12 @@ class WEEL
     def to_json(*args)
       as_json.to_json(*args)
     end
+    def eql?(other)
+      to_s == other.to_s
+    end
+    def hash
+      to_s.hash
+    end
   end # }}}
 
    class Continue # {{{
@@ -696,6 +702,7 @@ class WEEL
         ipc[:unmark] << ele
         true
       end
+      ipc[:unmark].uniq!
 
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
