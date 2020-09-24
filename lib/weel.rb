@@ -15,6 +15,7 @@
 # <http://www.gnu.org/licenses/>.
 
 require 'thread'
+require 'securerandom'
 
 class WEEL
   def initialize(*args)# {{{
@@ -237,6 +238,7 @@ class WEEL
   end # }}}
 
   class HandlerWrapperBase # {{{
+    def self::loop_guard(lid,count); false; end
     def self::inform_state_change(arguments,newstate); end
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_handlerwrapper_error(arguments,err); end
@@ -584,15 +586,21 @@ class WEEL
         __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
         return
       end
+      loop_guard = 0
+      loop_id = SecureRandom.uuid
       catch :escape do
         case condition[1]
           when :pre_test
             while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
+              loop_guard += 1
               __weel_protect_yield(&block)
+              sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
             end
           when :post_test
             begin
+              loop_guard += 1
               __weel_protect_yield(&block)
+              sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
             end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
         end
       end
