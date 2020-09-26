@@ -702,7 +702,7 @@ class WEEL
         ipc[:unmark] << ele
         true
       end
-      ipc[:unmark].uniq!
+      ipc[:unmark].uniq! if ipc[:unmark]
 
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
