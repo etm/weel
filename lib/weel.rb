@@ -636,7 +636,7 @@ class WEEL
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      __weel_progress searchmode, position, true
+      __weel_progress position, true
       self.__weel_state = :stopping
     end #}}}
 
@@ -681,8 +681,9 @@ class WEEL
       end
     end #}}}
 
-    def __weel_progress(searchmode, position, skip=false) #{{{
+    def __weel_progress(position, skip=false) #{{{
       ipc = {}
+      branch = Thread.current
       if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
         @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
         ipc[:unmark] ||= []
@@ -694,9 +695,15 @@ class WEEL
         ipc[:unmark] ||= []
         ipc[:unmark] << Thread.current[:branch_position] rescue nil
       end
-      wp = WEEL::Position.new(position, skip ? :after : :at, nil)
+      wp = if branch[:branch_search_now] == true
+        branch[:branch_search_now] = false
+        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position].passthrough)
+      else
+        WEEL::Position.new(position, skip ? :after : :at)
+      end
       ipc[skip ? :after : :at] = [wp]
 
+      @__weel_search_positions.delete(position)
       @__weel_search_positions.each do |k,ele| # some may still be in active search but lets unmark them for good measure
         ipc[:unmark] ||= []
         ipc[:unmark] << ele
@@ -726,7 +733,7 @@ class WEEL
           return
         end
 
-        wp = __weel_progress searchmode, position
+        wp = __weel_progress position
 
         # searchmode position is after, jump directly to vote_sync_after
         raise Signal::Proceed if searchmode == :after
@@ -772,13 +779,7 @@ class WEEL
                 raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-                if @__weel_search_positions[position]
-                  passthrough = @__weel_search_positions[position].passthrough
-                  @__weel_search_positions[position].passthrough = nil
-                else
-                  passthrough = nil
-                end
-                handlerwrapper.activity_handle passthrough, params
+                handlerwrapper.activity_handle wp.passthrough, params
                 wp.passthrough = handlerwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
                   @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
@@ -923,9 +924,11 @@ class WEEL
 
       if position && @__weel_search_positions.include?(position) # matching searchpos => start execution from here
         branch[:branch_search] = false # execute all activities in THIS branch (thread) after this point
+        branch[:branch_search_now] = true # just now did we switch the search mode
         while branch.key?(:branch_parent) # also all parent branches should execute activities after this point, additional branches spawned by parent branches should still be in search mode
           branch = branch[:branch_parent]
           branch[:branch_search] = false
+          branch[:branch_search_now] = true # just now did we switch the search mode
         end
         @__weel_search_positions[position].detail == :after
       else
