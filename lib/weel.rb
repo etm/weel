@@ -238,7 +238,7 @@ class WEEL
   end # }}}
 
   class HandlerWrapperBase # {{{
-    def self::loop_guard(lid,count); false; end
+    def self::loop_guard(arguments,lid,count); false; end
     def self::inform_state_change(arguments,newstate); end
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_handlerwrapper_error(arguments,err); end
