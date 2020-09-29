@@ -697,7 +697,7 @@ class WEEL
       end
       wp = if branch[:branch_search_now] == true
         branch[:branch_search_now] = false
-        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position].passthrough)
+        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
       else
         WEEL::Position.new(position, skip ? :after : :at)
       end
