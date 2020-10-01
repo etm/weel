@@ -1104,8 +1104,12 @@ public
   # Stop the workflow execution
   def stop # {{{
     Thread.new do
-      @dslr.__weel_state = :stopping
-      @dslr.__weel_main.join if @dslr.__weel_main
+      if  @dslr.__weel_state == :running
+        @dslr.__weel_state = :stopping
+        @dslr.__weel_main.join if @dslr.__weel_main
+      elsif @dslr.__weel_state == :ready || dslr.__weel_state == :stopped
+        @dslr.__weel_state = :stopped
+      end
     end
   end # }}}
   # Start the workflow execution
