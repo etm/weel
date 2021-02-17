@@ -43,8 +43,7 @@ class WEEL
 
   class ReadStructure # {{{
     def initialize(data,endpoints,additional)
-      @__weel_data = data.dup
-      @__weel_data.transform_values! do |v|
+      @__weel_data = data.transform_values do |v|
         if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
           v.root.to_doc
         else
@@ -55,8 +54,7 @@ class WEEL
           end
         end
       end
-      @__weel_endpoints = endpoints.dup
-      @__weel_endpoints.transform_values!{ |v| v.dup }
+      @__weel_endpoints = endpoints.transform_values{ |v| v.dup }
       @additional = additional
     end
 
@@ -275,6 +273,7 @@ class WEEL
     def simulate(type,nesting,sequence,parent,parameters={}); end
 
     def callback(result=nil,options={}); end
+    def mem_guard; end
 
     def test_condition(mr,code); mr.instance_eval(code); end
     def manipulate(mr,code,result=nil,options=nil); mr.instance_eval(code); end
@@ -767,6 +766,7 @@ class WEEL
           when :call
             begin
               again = catch Signal::Again do
+                handlerwrapper.mem_guard
                 rs = ReadStructure.new(@__weel_data,@__weel_endpoints,handlerwrapper.additional)
                 if prepare
                   if prepare.is_a?(Proc)
@@ -869,6 +869,7 @@ class WEEL
         @__weel_handlerwrapper::inform_handlerwrapper_error @__weel_handlerwrapper_args, err
         self.__weel_state = :stopping
       ensure
+        handlerwrapper.mem_guard unless handlerwrapper.nil?
         Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
       end
     end # }}}
