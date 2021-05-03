@@ -221,6 +221,8 @@ class WEEL
       else
         if args.empty? && @__weel_values.key?(name)
           @__weel_values[name]
+        elsif args.empty? && @__weel_values.key?(name.to_s)
+          @__weel_values[name.to_s]
         elsif name.to_s[-1..-1] == "=" && args.length == 1
           temp = name.to_s[0..-2]
           @__weel_values[temp.to_sym] = args[0]
