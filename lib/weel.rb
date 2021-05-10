@@ -417,7 +417,9 @@ class WEEL
 
       __weel_protect_yield(&block)
 
-      Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type.size == 1 && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
+      Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
+      Thread.current[:branch_wait_count_cancel] = 0
+      Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == 'first' ) ? :first : :last
       1.upto Thread.current[:branches].size do
         Thread.current[:branch_event].wait
       end
@@ -460,11 +462,12 @@ class WEEL
         current_branch_sim_pos = branch_parent[:branch_sim_pos]
       end
 
-      Thread.current[:branches] << Thread.new(*vars) do |*local|
+      branch_parent[:branches] << Thread.new(*vars) do |*local|
         Thread.current.abort_on_exception = true
         Thread.current[:branch_status] = false
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
+        Thread.current[:branch_wait_count_cancel_active] = false
 
         if __weel_sim
           Thread.current[:branch_sim_pos] = @__weel_sim += 1
@@ -872,6 +875,24 @@ class WEEL
         self.__weel_state = :stopping
       ensure
         handlerwrapper.mem_guard unless handlerwrapper.nil?
+        if Thread.current[:branch_parent]
+          Thread.current[:branch_parent][:mutex].synchronize do
+            if Thread.current[:branch_parent][:branch_wait_count_cancel_condition] == :first
+              if !Thread.current[:branch_wait_count_cancel_active]
+                Thread.current[:branch_wait_count_cancel_active] = true
+                Thread.current[:branch_parent][:branch_wait_count_cancel] += 1
+              end
+              if Thread.current[:branch_parent][:branch_wait_count_cancel] ==  Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
+                Thread.current[:branch_parent][:branches].each do |thread|
+                  if thread.alive? && thread != Thread.current
+                    thread[:nolongernecessary] = true
+                    __weel_recursive_continue(thread)
+                  end
+                end
+              end
+            end
+          end
+        end
         Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
       end
     end # }}}
