@@ -419,7 +419,7 @@ class WEEL
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       Thread.current[:branch_wait_count_cancel] = 0
-      Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == 'first' ) ? :first : :last
+      Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == :first ) ? :first : :last
       1.upto Thread.current[:branches].size do
         Thread.current[:branch_event].wait
       end
