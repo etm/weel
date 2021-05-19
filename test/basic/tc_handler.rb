@@ -6,14 +6,14 @@ class TestCaseHandler < Test::Unit::TestCase
 
   def test_handler
     assert_raise RuntimeError do
-      @wf.handlerwrapper = String
+      @wf.connectionwrapper = String
     end
     assert_nothing_raised do
-      @wf.handlerwrapper = TestHandlerWrapper
+      @wf.connectionwrapper = TestConnectionWrapper
     end
   end
   def test_handlerargs
-    @wf.handlerwrapper_args =  ["1", "2"]
-    assert(@wf.handlerwrapper_args.is_a?(Array), "Handler arguments is not an array, it is a #{@wf.handlerwrapper_args.inspect}")
+    @wf.connectionwrapper_args =  ["1", "2"]
+    assert(@wf.connectionwrapper_args.is_a?(Array), "Handler arguments is not an array, it is a #{@wf.connectionwrapper_args.inspect}")
   end
 end

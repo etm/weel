@@ -1,12 +1,12 @@
 require 'test/unit'
 require File.expand_path(::File.dirname(__FILE__) + '/../../lib/weel')
-require File.expand_path(::File.dirname(__FILE__) + '/../SimHandlerWrapper')
+require File.expand_path(::File.dirname(__FILE__) + '/../SimConnectionWrapper')
 
 class TestSimParallelChoose < Test::Unit::TestCase
 
   class SimWorkflowParallelChoose < WEEL
-    handlerwrapper SimHandlerWrapper
-    
+    connectionwrapper SimConnectionWrapper
+
     endpoint :ep1 => "data.at"
 
     data :hotels  => []
@@ -18,14 +18,14 @@ class TestSimParallelChoose < Test::Unit::TestCase
       parallel do
         loop pre_test{data.persons > 0} do
           choose do
-            alternative data.costs > 400 do 
+            alternative data.costs > 400 do
               parallel_branch data.persons do |p|
                 call :a2, :endpoint1 do
                   data.hotels << 'Rathaus'
                   data.costs += 200
                 end
               end
-            end  
+            end
             otherwise do
               parallel_branch data.persons do |p|
                 call :a2, :endpoint1 do

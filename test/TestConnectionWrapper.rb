@@ -1,4 +1,4 @@
-class TestHandlerWrapper < WEEL::HandlerWrapperBase
+class TestConnectionWrapper < WEEL::ConnectionWrapperBase
   def self::inform_state_change(arguments,newstate)
     $long_track += "---> STATE #{newstate}\n"
     $short_track << "|#{newstate}|"
@@ -8,7 +8,7 @@ class TestHandlerWrapper < WEEL::HandlerWrapperBase
     $short_track << "E"
     raise(err)
   end
-  def self::inform_handlerwrapper_error(arguments,err)
+  def self::inform_connectionwrapper_error(arguments,err)
     $long_track += "HW ERROR: #{err}\n"
     $short_track << "E"
   end
