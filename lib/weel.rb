@@ -197,8 +197,9 @@ class WEEL
       @message = message
     end
     def nudge!
-      @nudge.clear
-      @nudge.push(nil)
+      1.upto(@nudge.num_waiting) do
+        @nudge.push(nil)
+      end
     end
     def wait_until_nudged!
       @nudge.pop
