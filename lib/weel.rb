@@ -601,7 +601,7 @@ class WEEL
       catch :escape do
         case condition[1]
           when :pre_test
-            while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
+            while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
@@ -611,7 +611,7 @@ class WEEL
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
-            end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing
+            end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
         end
       end
     end # }}}
