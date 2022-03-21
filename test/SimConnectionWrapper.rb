@@ -1,13 +1,13 @@
 # Apache License, Version 2.0
-# 
+#
 # Copyright (c) 2013 Juergen Mangler
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,18 +15,18 @@
 # limitations under the License.
 
 ######
-# ADVENTURE Simulation Trace Generator Handler Wrapper
+# ADVENTURE Simulation Trace Generator Connection Wrapper
 ######
 
 module TraceBasics #{{{
   def <<(item)
     @elements << item
-    item.parent = self  
+    item.parent = self
   end
   def each
     @elements.each do |ele|
       yield ele
-    end  
+    end
   end
 end #}}}
 
@@ -42,11 +42,11 @@ class Trace #{{{
   end
   def recursive_get_container(container,tid)
     return container if container.respond_to?(:tid) and container.tid == tid
-    container.each do |ele| 
+    container.each do |ele|
       if ele.kind_of?(TraceContainer)
-        ret = recursive_get_container(ele,tid) 
+        ret = recursive_get_container(ele,tid)
         return ret unless ret.nil?
-      end  
+      end
     end
     nil
   end
@@ -79,7 +79,7 @@ class Trace #{{{
           tmp = recursive_generate_list(ele,options)
           add_traces(traces,tmp)
           options[:otherwise] = true
-      end  
+      end
     end
     traces
   end
@@ -137,7 +137,7 @@ class TraceChoose < TraceContainer
   def initialize(tid,mode)
     super tid
     @mode = mode
-  end  
+  end
 end
 class TraceAlternative < TraceContainer; end
 class TraceOtherwise < TraceContainer; end
@@ -145,10 +145,10 @@ class TraceOtherwise < TraceContainer; end
 class PlainTrace
   def initialize
     @container
-  end  
+  end
 end
 
-class SimHandlerWrapper < WEEL::HandlerWrapperBase
+class SimConnectionWrapper < WEEL::ConnectionWrapperBase
   def initialize(args,endpoint=nil,position=nil,continue=nil)
     @__myhandler_stopped = false
     @__myhandler_position = position
@@ -172,19 +172,19 @@ class SimHandlerWrapper < WEEL::HandlerWrapperBase
           clast = $trace.get_container(parent)
           until clast.kind_of?(TraceParallel)
             clast = clast.parent
-          end  
+          end
           clast << TraceParallelBranch.new(tid,parent)
         else
           clast = $trace.get_container(tid)
           clast.close! if clast.open?
-        end  
+        end
       when :choose
         simulate_add_to_container($trace,nesting,parent,tid) { TraceChoose.new(tid,parameters[:mode]) }
       when :alternative
         simulate_add_to_container($trace,nesting,parent,tid) { TraceAlternative.new(tid) }
       when :otherwise
         simulate_add_to_container($trace,nesting,parent,tid) { TraceOtherwise.new(tid) }
-    end  
+    end
   end
 
   private
@@ -196,7 +196,7 @@ class SimHandlerWrapper < WEEL::HandlerWrapperBase
       else
         clast = trace.get_container(tid)
         clast.close! if clast.open?
-      end  
+      end
     end #}}}
 
 end

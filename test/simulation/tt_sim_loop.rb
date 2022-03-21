@@ -1,12 +1,12 @@
 require 'test/unit'
 require File.expand_path(::File.dirname(__FILE__) + '/../../lib/weel')
-require File.expand_path(::File.dirname(__FILE__) + '/../SimHandlerWrapper')
+require File.expand_path(::File.dirname(__FILE__) + '/../SimConnectionWrapper')
 
 class TestSimLoop < Test::Unit::TestCase
 
   class SimWorkflowLoop < WEEL
-    handlerwrapper SimHandlerWrapper
-    
+    connectionwrapper SimConnectionWrapper
+
     endpoint :ep1 => "data.at"
 
     data :hotels  => []

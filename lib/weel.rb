@@ -20,13 +20,14 @@ require 'securerandom'
 class WEEL
   def initialize(*args)# {{{
     @dslr = DSLRealization.new
-    @dslr.__weel_handlerwrapper_args = args
+    @dslr.__weel_connectionwrapper_args = args
 
     initialize_search if methods.include?(:initialize_search)
     initialize_data if methods.include?(:initialize_data)
     initialize_endpoints if methods.include?(:initialize_endpoints)
-    initialize_handlerwrapper if methods.include?(:initialize_handlerwrapper)
+    initialize_connectionwrapper if methods.include?(:initialize_connectionwrapper)
     initialize_control if methods.include?(:initialize_control)
+    initialize_flow_data if methods.include?(:initialize_flow_data)
   end # }}}
 
   module Signal # {{{
@@ -196,8 +197,9 @@ class WEEL
       @message = message
     end
     def nudge!
-      @nudge.clear
-      @nudge.push(nil)
+      1.upto(@nudge.num_waiting) do
+        @nudge.push(nil)
+      end
     end
     def wait_until_nudged!
       @nudge.pop
@@ -237,11 +239,11 @@ class WEEL
     end
   end # }}}
 
-  class HandlerWrapperBase # {{{
+  class ConnectionWrapperBase # {{{
     def self::loop_guard(arguments,lid,count); false; end
     def self::inform_state_change(arguments,newstate); end
     def self::inform_syntax_error(arguments,err,code); end
-    def self::inform_handlerwrapper_error(arguments,err); end
+    def self::inform_connectionwrapper_error(arguments,err); end
     def self::inform_position_change(arguments,ipc={}); end
 
     def initialize(arguments,position=nil,continue=nil); end
@@ -353,19 +355,21 @@ class WEEL
       end
     end
   end # }}}
-  def self::handlerwrapper(aClassname, *args)# {{{
-    define_method :initialize_handlerwrapper do
-      self.handlerwrapper = aClassname
-      self.handlerwrapper_args = args unless args.empty?
+  def self::connectionwrapper(aClassname, *args)# {{{
+    define_method :initialize_connectionwrapper do
+      self.connectionwrapper = aClassname
+      self.connectionwrapper_args = args unless args.empty?
     end
   end # }}}
   def self::control(flow, &block)# {{{
-    @@__weel_control_block = block
     define_method :initialize_control do
-      self.description = @@__weel_control_block
+      self.description = block
     end
   end #  }}}
-  def self::flow # {{{
+  def self::flow(flow_data=nil) # {{{
+    define_method :initialize_flow_data do
+      self.flow_data = flow_data
+    end if flow_data
   end #}}}
 
   class DSLRealization # {{{
@@ -375,14 +379,14 @@ class WEEL
       @__weel_main = nil
       @__weel_data ||= Hash.new
       @__weel_endpoints ||= Hash.new
-      @__weel_handlerwrapper = HandlerWrapperBase
-      @__weel_handlerwrapper_args = []
+      @__weel_connectionwrapper = ConnectionWrapperBase
+      @__weel_connectionwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
       @__weel_replay = false
       @__weel_sim = -1
     end #}}}
-    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_handlerwrapper, :__weel_handlerwrapper_args, :__weel_replay
+    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args, :__weel_replay
     attr_reader :__weel_state, :__weel_status
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
@@ -419,7 +423,7 @@ class WEEL
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       Thread.current[:branch_wait_count_cancel] = 0
-      Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == 'first' ) ? :first : :last
+      Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == :first ) ? :first : :last
       1.upto Thread.current[:branches].size do
         Thread.current[:branch_event].wait
       end
@@ -483,15 +487,15 @@ class WEEL
         Thread.current[:start_event].wait unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
 
         if __weel_sim
-          handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-          handlerwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
+          connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+          connectionwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
         end
 
         unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
           __weel_protect_yield(*local, &block)
         end
 
-        __weel_sim_stop(:parallel_branch,handlerwrapper,current_branch_sim_pos) if __weel_sim
+        __weel_sim_stop(:parallel_branch,connectionwrapper,current_branch_sim_pos) if __weel_sim
 
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_status] = true
@@ -506,7 +510,7 @@ class WEEL
             begin
               ipc = {}
               ipc[:unmark] = [Thread.current[:branch_position]]
-              @__weel_handlerwrapper::inform_position_change(@__weel_handlerwrapper_args,ipc)
+              @__weel_connectionwrapper::inform_position_change(@__weel_connectionwrapper_args,ipc)
             end rescue nil
             Thread.current[:branch_position] = nil
           end
@@ -604,13 +608,13 @@ class WEEL
             while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
               loop_guard += 1
               __weel_protect_yield(&block)
-              sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
+              sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
             end
           when :post_test
             begin
               loop_guard += 1
               __weel_protect_yield(&block)
-              sleep 1 if @__weel_handlerwrapper::loop_guard(@__weel_handlerwrapper_args,loop_id,loop_guard)
+              sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
             end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
         end
       end
@@ -660,27 +664,27 @@ class WEEL
         yield(*local) if block_given?
       rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue => err
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new(err.message),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
         nil
       end
     end #}}}
 
     def __weel_eval_condition(condition) #{{{
       begin
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args unless condition.is_a?(Proc)
-        condition.is_a?(Proc) ? condition.call : handlerwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,handlerwrapper.additional),condition)
+        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless condition.is_a?(Proc)
+        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,connectionwrapper.additional),condition)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue => err
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new(err.message),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
         nil
       end
     end #}}}
@@ -718,7 +722,7 @@ class WEEL
       @__weel_positions << wp
       Thread.current[:branch_position] = wp
 
-      @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, ipc
+      @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, ipc
       wp
     end #}}}
 
@@ -730,10 +734,10 @@ class WEEL
         return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
-        handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args, position, Thread.current[:continue]
+        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args, position, Thread.current[:continue]
 
         if __weel_sim
-          handlerwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoint => endpoint,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
+          connectionwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoint => endpoint,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
           return
         end
 
@@ -744,35 +748,35 @@ class WEEL
 
         case type
           when :manipulate
-            raise Signal::Stop unless handlerwrapper.vote_sync_before
+            raise Signal::Stop unless connectionwrapper.vote_sync_before
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
             if finalize.is_a?(Proc) || finalize.is_a?(String)
-              handlerwrapper.activity_manipulate_handle(parameters)
-              handlerwrapper.inform_activity_manipulate
+              connectionwrapper.activity_manipulate_handle(parameters)
+              connectionwrapper.inform_activity_manipulate
               if finalize.is_a?(Proc)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
-                handlerwrapper.manipulate(mr,finalize)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
+                connectionwrapper.manipulate(mr,finalize)
               end
-              handlerwrapper.inform_manipulate_change(
+              connectionwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil),
                 ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
                 ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil),
                 @__weel_data,
                 @__weel_endpoints
               )
-              handlerwrapper.inform_activity_done
+              connectionwrapper.inform_activity_done
               wp.detail = :after
-              @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
+              @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
             end
           when :call
             begin
               again = catch Signal::Again do
-                handlerwrapper.mem_guard
-                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,handlerwrapper.additional)
+                connectionwrapper.mem_guard
+                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,connectionwrapper.additional)
                 if prepare
                   if prepare.is_a?(Proc)
                     rs.instance_exec(&prepare)
@@ -780,14 +784,14 @@ class WEEL
                     rs.instance_eval prepare
                   end
                 end
-                params = handlerwrapper.prepare(rs,endpoint,parameters,@__weel_replay)
-                raise Signal::Stop unless handlerwrapper.vote_sync_before(params)
+                params = connectionwrapper.prepare(rs,endpoint,parameters,@__weel_replay)
+                raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-                handlerwrapper.activity_handle wp.passthrough, params
-                wp.passthrough = handlerwrapper.activity_passthrough_value
+                connectionwrapper.activity_handle wp.passthrough, params
+                wp.passthrough = connectionwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
-                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :wait => [wp]
+                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
                 end
                 begin
                   # with loop if catching Signal::Again
@@ -797,12 +801,12 @@ class WEEL
                   raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
 
                   if Thread.current[:nolongernecessary]
-                    handlerwrapper.activity_no_longer_necessary
+                    connectionwrapper.activity_no_longer_necessary
                     raise Signal::NoLongerNecessary
                   end
                   if self.__weel_state == :stopping || self.__weel_state == :finishing
-                    handlerwrapper.activity_stop
-                    wp.passthrough = handlerwrapper.activity_passthrough_value
+                    connectionwrapper.activity_stop
+                    wp.passthrough = connectionwrapper.activity_passthrough_value
                     raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
                   end
 
@@ -814,26 +818,26 @@ class WEEL
                     finalize
                   end
                   if code.is_a?(Proc) || code.is_a?(String)
-                    handlerwrapper.inform_activity_manipulate
+                    connectionwrapper.inform_activity_manipulate
                     if code.is_a?(Proc)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
                       ma = catch Signal::Again do
                         case code.arity
-                          when 1; mr.instance_exec(handlerwrapper.activity_result_value,&code)
-                          when 2; mr.instance_exec(handlerwrapper.activity_result_value,&code)
+                          when 1; mr.instance_exec(connectionwrapper.activity_result_value,&code)
+                          when 2; mr.instance_exec(connectionwrapper.activity_result_value,&code)
                           else
                             mr.instance_exec(&code)
                         end
                         'yes' # ma sadly will have nil when i just throw
                       end
                     elsif code.is_a?(String)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,handlerwrapper.additional)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
                       ma = catch Signal::Again do
-                        handlerwrapper.manipulate(mr,code,handlerwrapper.activity_result_value,handlerwrapper.activity_result_options)
+                        connectionwrapper.manipulate(mr,code,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                         'yes' # ma sadly will have nil when i just throw
                       end
                     end
-                    handlerwrapper.inform_manipulate_change(
+                    connectionwrapper.inform_manipulate_change(
                       (mr.changed_status ? @__weel_status : nil),
                       (mr.changed_data.any? ? mr.changed_data.uniq : nil),
                       (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
@@ -843,18 +847,18 @@ class WEEL
                     throw(Signal::Again, Signal::Again) if ma.nil?
                   end
                 end while waitingresult == Signal::Again
-                if handlerwrapper.activity_passthrough_value.nil?
-                  handlerwrapper.inform_activity_done
+                if connectionwrapper.activity_passthrough_value.nil?
+                  connectionwrapper.inform_activity_done
                   wp.passthrough = nil
                   wp.detail = :after
-                  @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :after => [wp]
+                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
                 end
               end
             end while again == Signal::Again
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
-        if self.__weel_state != :stopping && self.__weel_state != :finishing && !handlerwrapper.vote_sync_after
+        if self.__weel_state != :stopping && self.__weel_state != :finishing && !connectionwrapper.vote_sync_after
           self.__weel_state = :stopping
           wp.detail = :unmark
         end
@@ -862,19 +866,19 @@ class WEEL
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
         wp.detail = :unmark
-        @__weel_handlerwrapper::inform_position_change @__weel_handlerwrapper_args, :unmark => [wp]
+        @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :unmark => [wp]
       rescue Signal::StopSkipManipulate, Signal::Stop
         self.__weel_state = :stopping
       rescue Signal::Skip
         nil
       rescue SyntaxError => se
-        handlerwrapper.inform_activity_failed se
+        connectionwrapper.inform_activity_failed se
         self.__weel_state = :stopping
       rescue => err
-        @__weel_handlerwrapper::inform_handlerwrapper_error @__weel_handlerwrapper_args, err
+        @__weel_connectionwrapper::inform_connectionwrapper_error @__weel_connectionwrapper_args, err
         self.__weel_state = :stopping
       ensure
-        handlerwrapper.mem_guard unless handlerwrapper.nil?
+        connectionwrapper.mem_guard unless connectionwrapper.nil?
         if Thread.current[:branch_parent]
           Thread.current[:branch_parent][:mutex].synchronize do
             if Thread.current[:branch_parent][:branch_wait_count_cancel_condition] == :first
@@ -938,7 +942,7 @@ class WEEL
         position
       else
         self.__weel_state = :stopping
-        @__weel_handlerwrapper::inform_syntax_error(@__weel_handlerwrapper_args,Exception.new("position (#{position}) not valid"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("position (#{position}) not valid"),nil)
       end
     end # }}}
 
@@ -967,13 +971,13 @@ class WEEL
     def __weel_sim_start(what,options={}) #{{{
       current_branch_sim_pos = Thread.current[:branch_sim_pos]
       Thread.current[:branch_sim_pos] = @__weel_sim += 1
-      handlerwrapper = @__weel_handlerwrapper.new @__weel_handlerwrapper_args
-      handlerwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
-      [handlerwrapper, current_branch_sim_pos]
+      connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+      connectionwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
+      [connectionwrapper, current_branch_sim_pos]
     end #}}}
 
-    def __weel_sim_stop(what,handlerwrapper,current_branch_sim_pos,options={}) #{{{
-      handlerwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
+    def __weel_sim_stop(what,connectionwrapper,current_branch_sim_pos,options={}) #{{{
+      connectionwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
       Thread.current[:branch_sim_pos] = current_branch_sim_pos
     end #}}}
 
@@ -981,7 +985,7 @@ class WEEL
     def __weel_finalize #{{{
       __weel_recursive_join(@__weel_main)
       @__weel_state = :stopped
-      @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
+      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
     end #}}}
 
     def __weel_state=(newState)# {{{
@@ -996,7 +1000,7 @@ class WEEL
         __weel_replay = false
       end
 
-      @__weel_handlerwrapper::inform_state_change @__weel_handlerwrapper_args, @__weel_state
+      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
     end # }}}
 
   end # }}}
@@ -1006,27 +1010,27 @@ public
     @dslr.__weel_positions
   end # }}}
 
-  # set the handlerwrapper
-  def handlerwrapper # {{{
-    @dslr.__weel_handlerwrapper
+  # set the connectionwrapper
+  def connectionwrapper # {{{
+    @dslr.__weel_connectionwrapper
   end # }}}
-  def handlerwrapper=(new_weel_handlerwrapper) # {{{
-    superclass = new_weel_handlerwrapper
+  def connectionwrapper=(new_weel_connectionwrapper) # {{{
+    superclass = new_weel_connectionwrapper
     while superclass
-      check_ok = true if superclass == WEEL::HandlerWrapperBase
+      check_ok = true if superclass == WEEL::ConnectionWrapperBase
       superclass = superclass.superclass
     end
-    raise "Handlerwrapper is not inherited from HandlerWrapperBase" unless check_ok
-    @dslr.__weel_handlerwrapper = new_weel_handlerwrapper
+    raise "ConnectionWrapper is not inherited from ConnectionWrapperBase" unless check_ok
+    @dslr.__weel_connectionwrapper = new_weel_connectionwrapper
   end # }}}
 
-  # Get/Set the handlerwrapper arguments
-  def handlerwrapper_args # {{{
-    @dslr.__weel_handlerwrapper_args
+  # Get/Set the connectionwrapper arguments
+  def connectionwrapper_args # {{{
+    @dslr.__weel_connectionwrapper_args
   end # }}}
-  def handlerwrapper_args=(args) # {{{
+  def connectionwrapper_args=(args) # {{{
     if args.class == Array
-      @dslr.__weel_handlerwrapper_args = args
+      @dslr.__weel_connectionwrapper_args = args
     end
     nil
   end #  }}}
@@ -1036,7 +1040,7 @@ public
     @dslr.__weel_state
   end #  }}}
   def state_signal # {{{
-    handlerwrapper::inform_state_change handlerwrapper_args, state
+    connectionwrapper::inform_state_change connectionwrapper_args, state
     state
   end # }}}
   def abandon # {{{
@@ -1100,19 +1104,19 @@ public
           end
         rescue SyntaxError => se
           @dslr.__weel_state = :stopping
-          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(se.message),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(se.message),code)
         rescue NameError => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
-          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
         rescue => err
           @dslr.__weel_state = :stopping
-          @dslr.__weel_handlerwrapper::inform_syntax_error(@dslr.__weel_handlerwrapper_args,Exception.new(err.message),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(err.message),code)
         end
         if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp }
           @dslr.__weel_positions.clear
-          @dslr.__weel_handlerwrapper::inform_position_change(@dslr.__weel_handlerwrapper_args,ipc)
+          @dslr.__weel_connectionwrapper::inform_position_change(@dslr.__weel_connectionwrapper_args,ipc)
           @dslr.__weel_state = :finished
         end
         if @dslr.__weel_state == :simulating
@@ -1145,7 +1149,7 @@ public
       rescue => e
         puts e.message
         puts e.backtrace
-        handlerwrapper::inform_handlerwrapper_error handlerwrapper_args, e
+        connectionwrapper::inform_connectionwrapper_error connectionwrapper_args, e
       end
     end
   end # }}}

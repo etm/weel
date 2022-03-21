@@ -1,9 +1,9 @@
 require File.expand_path(::File.dirname(__FILE__) + '/../lib/weel')
 require File.expand_path(::File.dirname(__FILE__) + '/TestMixin')
-require File.expand_path(::File.dirname(__FILE__) + '/TestHandlerWrapper')
+require File.expand_path(::File.dirname(__FILE__) + '/TestConnectionWrapper')
 
 class TestWorkflow < WEEL
-  handlerwrapper TestHandlerWrapper
+  connectionwrapper TestConnectionWrapper
 
   endpoint :endpoint1 => 'http://www.heise.de'
   endpoint :stop => 'stop it'
