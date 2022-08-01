@@ -59,6 +59,18 @@ class WEEL
       @additional = additional
     end
 
+    def to_json(*a)
+      {
+        'data' => @__weel_data,
+        'endpoints' => @__weel_endpoints,
+        'additional' => @additional,
+        'status' => {
+          'id' => @__weel_status.id,
+          'message' => @__weel_status.message
+        }
+      }.to_json(*a)
+    end
+
     def method_missing(m,*args,&block)
       if @additional.include?(m)
         begin
@@ -93,6 +105,18 @@ class WEEL
       @changed_endpoints = []
       @touched_endpoints = []
       @additional = additional
+    end
+
+    def to_json(*a)
+      {
+        'data' => @__weel_data,
+        'endpoints' => @__weel_endpoints,
+        'additional' => @additional,
+        'status' => {
+          'id' => @__weel_status.id,
+          'message' => @__weel_status.message
+        }
+      }.to_json(*a)
     end
 
     def method_missing(m,*args,&block)
