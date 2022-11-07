@@ -106,11 +106,4 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
     $short_track << "F#{@__myhandler_position}"
     raise(err)
   end #}}}
-
-  def manipulate(mr,code,result=nil,status=nil)
-    mr.instance_eval(code)
-  end
-  def test_condition(mr,code)
-    mr.instance_eval(code)
-  end
 end

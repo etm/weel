@@ -304,7 +304,7 @@ class WEEL
     def mem_guard; end
 
     def test_condition(mr,code); mr.instance_eval(code); end
-    def manipulate(mr,code,result=nil,options=nil); mr.instance_eval(code); end
+    def manipulate(mr,code,where,result=nil,options=nil); mr.instance_eval(code,where,1); end
   end  # }}}
 
   class Position # {{{
@@ -783,7 +783,7 @@ class WEEL
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
                 mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
-                connectionwrapper.manipulate(mr,finalize)
+                connectionwrapper.manipulate(mr,finalize,'Activity ' + position.to_s)
               end
               connectionwrapper.inform_manipulate_change(
                 ((mr && mr.changed_status) ? @__weel_status : nil),
@@ -805,7 +805,7 @@ class WEEL
                   if prepare.is_a?(Proc)
                     rs.instance_exec(&prepare)
                   elsif prepare.is_a?(String)
-                    rs.instance_eval prepare
+                    connectionwrapper.manipulate(rs,prepare,'Activity ' + position.to_s)
                   end
                 end
                 params = connectionwrapper.prepare(rs,endpoint,parameters,@__weel_replay)
@@ -857,7 +857,7 @@ class WEEL
                     elsif code.is_a?(String)
                       mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
                       ma = catch Signal::Again do
-                        connectionwrapper.manipulate(mr,code,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                        connectionwrapper.manipulate(mr,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                         'yes' # ma sadly will have nil when i just throw
                       end
                     end
