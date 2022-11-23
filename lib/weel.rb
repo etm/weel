@@ -304,6 +304,7 @@ class WEEL
     def mem_guard; end
 
     def test_condition(mr,code); mr.instance_eval(code); end
+    def join_branches(branches); end
     def manipulate(mr,code,where,result=nil,options=nil); mr.instance_eval(code,where,1); end
   end  # }}}
 
@@ -437,6 +438,8 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
       Thread.current[:branches] = []
+      Thread.current[:branch_traces] = {}
+      Thread.current[:branch_traces_ids] = 0
       Thread.current[:branch_finished_count] = 0
       Thread.current[:branch_event] = Continue.new
       Thread.current[:mutex] = Mutex.new
@@ -464,6 +467,9 @@ class WEEL
       Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
       __weel_sim_stop(:parallel,hw,pos) if __weel_sim
+
+      cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+      cw.join_branches(Thread.current[:branch_traces])
 
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
@@ -496,6 +502,10 @@ class WEEL
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
         Thread.current[:branch_wait_count_cancel_active] = false
+        branch_parent[:mutex].synchronize do
+          Thread.current[:branch_traces_id] = branch_parent[:branch_traces_ids]
+          branch_parent[:branch_traces_ids] += 1
+        end
 
         if __weel_sim
           Thread.current[:branch_sim_pos] = @__weel_sim += 1
@@ -668,6 +678,13 @@ class WEEL
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+
+      # gather traces in threads to point to join
+      if Thread.current[:branch_parent] && Thread.current[:branch_traces_id]
+        Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] ||= []
+        Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
+      end
+
       __weel_progress position, true
       self.__weel_state = :stopping
     end #}}}
@@ -763,6 +780,12 @@ class WEEL
         if __weel_sim
           connectionwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoint => endpoint,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
           return
+        end
+
+        # gather traces in threads to point to join
+        if Thread.current[:branch_parent] && Thread.current[:branch_traces_id]
+          Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] ||= []
+          Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
         end
 
         wp = __weel_progress position
