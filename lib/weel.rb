@@ -43,7 +43,7 @@ class WEEL
   end # }}}
 
   class ReadStructure # {{{
-    def initialize(data,endpoints,additional)
+    def initialize(data,endpoints,local,additional)
       @__weel_data = data.transform_values do |v|
         if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
           v.root.to_doc
@@ -56,6 +56,7 @@ class WEEL
         end
       end
       @__weel_endpoints = endpoints.transform_values{ |v| v.dup }
+      @__weel_local = local
       @additional = additional
     end
 
@@ -91,14 +92,18 @@ class WEEL
     def endpoints
       ReadHash.new(@__weel_endpoints)
     end
+    def local
+      @__weel_local.first
+    end
   end # }}}
   class ManipulateStructure # {{{
-    def initialize(data,endpoints,status,additional)
+    def initialize(data,endpoints,status,local,additional)
       @__weel_data = data
       @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) } rescue nil
       @__weel_endpoints = endpoints
       @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
       @__weel_status = status
+      @__weel_local = local
       @changed_status = "#{status.id}-#{status.message}"
       @changed_data = []
       @touched_data = []
@@ -164,6 +169,9 @@ class WEEL
     end
     def endpoints
       ManipulateHash.new(@__weel_endpoints,@touched_endpoints,@changed_endpoints)
+    end
+    def local
+      @__weel_local.first
     end
     def status
       @__weel_status
@@ -543,6 +551,7 @@ class WEEL
         Thread.current[:branch_status] = false
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
+        Thread.current[:local] = local
         Thread.current[:branch_wait_count_cancel_active] = false
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_traces_id] = branch_parent[:branch_traces_ids]
@@ -759,7 +768,7 @@ class WEEL
     def __weel_eval_condition(condition) #{{{
       begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless condition.is_a?(Proc)
-        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,connectionwrapper.additional),condition)
+        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),condition)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
@@ -844,10 +853,10 @@ class WEEL
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
               if finalize.is_a?(Proc)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
                 mr.instance_eval(&finalize)
               elsif finalize.is_a?(String)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
+                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
                 connectionwrapper.manipulate(mr,finalize,'Activity ' + position.to_s)
               end
               connectionwrapper.inform_manipulate_change(
@@ -865,7 +874,7 @@ class WEEL
             begin
               again = catch Signal::Again do
                 connectionwrapper.mem_guard
-                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,connectionwrapper.additional)
+                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
                 if prepare
                   if prepare.is_a?(Proc)
                     rs.instance_exec(&prepare)
@@ -909,7 +918,7 @@ class WEEL
                   if code.is_a?(Proc) || code.is_a?(String)
                     connectionwrapper.inform_activity_manipulate
                     if code.is_a?(Proc)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
                       ma = catch Signal::Again do
                         case code.arity
                           when 1; mr.instance_exec(connectionwrapper.activity_result_value,&code)
@@ -920,7 +929,7 @@ class WEEL
                         'yes' # ma sadly will have nil when i just throw
                       end
                     elsif code.is_a?(String)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,connectionwrapper.additional)
+                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
                       ma = catch Signal::Again do
                         connectionwrapper.manipulate(mr,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                         'yes' # ma sadly will have nil when i just throw
