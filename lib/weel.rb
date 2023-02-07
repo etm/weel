@@ -263,6 +263,48 @@ class WEEL
     end
   end # }}}
 
+  class ReadOnlyHash # {{{
+    def initialize(values,sim=false)
+      @__weel_values = values.transform_values do |v|
+        if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
+          v.root.to_doc
+        else
+          begin
+            Marshal.load(Marshal.dump(v))
+          rescue
+            v.to_s rescue nil
+          end
+        end
+      end
+      @__weel_sim = sim
+    end
+
+    def to_json(*args)
+      @__weel_values.to_json(*args)
+    end
+
+    def method_missing(name,*args)
+      if @__weel_sim
+        "➤#{name}"
+      else
+        if args.empty? && @__weel_values.key?(name)
+          @__weel_values[name]
+        elsif args.empty? && @__weel_values.key?(name.to_s)
+          @__weel_values[name.to_s]
+        elsif name.to_s[-1..-1] == "=" && args.length == 1
+          temp = name.to_s[0..-2]
+          @__weel_values[temp.to_sym] = args[0]
+        elsif name.to_s == "[]=" && args.length == 2
+          @__weel_values[args[0]] = args[1]
+        elsif name.to_s == "[]" && args.length == 1
+          @__weel_values[args[0]]
+        else
+          nil
+        end
+      end
+    end
+  end # }}}
+
   class ConnectionWrapperBase # {{{
     def self::loop_guard(arguments,lid,count); false; end
     def self::inform_state_change(arguments,newstate); end
@@ -693,7 +735,7 @@ class WEEL
       @__weel_status
     end # }}}
     def data # {{{
-      ReadHash.new(@__weel_data,__weel_sim)
+      ReadOnlyHash.new(@__weel_data,__weel_sim)
     end # }}}
     def endpoints # {{{
       ReadHash.new(@__weel_endpoints)
