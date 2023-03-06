@@ -360,13 +360,13 @@ class WEEL
   end  # }}}
 
   class Position # {{{
-    attr_reader :position, :uuid
-    attr_accessor :detail, :passthrough
-    def initialize(position, uuid, detail=:at, passthrough=nil) # :at or :after or :unmark
+    attr_reader :position
+    attr_accessor :detail, :passthrough, :uuid
+    def initialize(position, detail=:at, passthrough=nil) # :at or :after or :unmark
       @position = position
       @detail = detail
-      @uuid = uuid
       @passthrough = passthrough
+      @uuid = 0
     end
     def as_json(*)
       jsn = { 'position' => @position, 'uuid' => @uuid }
@@ -738,7 +738,7 @@ class WEEL
         Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
       end
 
-      __weel_progress position, 0, true
+      __weel_progress position, true
       self.__weel_state = :stopping
     end #}}}
 
@@ -783,7 +783,7 @@ class WEEL
       end
     end #}}}
 
-    def __weel_progress(position, uuid, skip=false) #{{{
+    def __weel_progress(position, skip=false) #{{{
       ipc = {}
       branch = Thread.current
       if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
@@ -799,9 +799,9 @@ class WEEL
       end
       wp = if branch[:branch_search_now] == true
         branch[:branch_search_now] = false
-        WEEL::Position.new(position, uuid, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
+        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
       else
-        WEEL::Position.new(position, uuid, skip ? :after : :at)
+        WEEL::Position.new(position, skip ? :after : :at)
       end
       ipc[skip ? :after : :at] = [wp]
 
@@ -841,7 +841,8 @@ class WEEL
           Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
         end
 
-        wp = __weel_progress position, connectionwrapper.activity_uuid
+        wp = __weel_progress position
+        wp.uuid = connectionwrapper.activity_uuid
 
         # searchmode position is after, jump directly to vote_sync_after
         raise Signal::Proceed if searchmode == :after
