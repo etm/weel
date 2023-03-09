@@ -738,7 +738,7 @@ class WEEL
         Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
       end
 
-      __weel_progress position, true
+      __weel_progress position, 0, true
       self.__weel_state = :stopping
     end #}}}
 
@@ -783,7 +783,7 @@ class WEEL
       end
     end #}}}
 
-    def __weel_progress(position, skip=false) #{{{
+    def __weel_progress(position, uuid, skip=false) #{{{
       ipc = {}
       branch = Thread.current
       if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
@@ -803,6 +803,7 @@ class WEEL
       else
         WEEL::Position.new(position, skip ? :after : :at)
       end
+      wp.uuid = uuid
       ipc[skip ? :after : :at] = [wp]
 
       @__weel_search_positions.delete(position)
@@ -841,8 +842,7 @@ class WEEL
           Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
         end
 
-        wp = __weel_progress position
-        wp.uuid = connectionwrapper.activity_uuid
+        wp = __weel_progress position, connectionwrapper.activity_uuid
 
         # searchmode position is after, jump directly to vote_sync_after
         raise Signal::Proceed if searchmode == :after
