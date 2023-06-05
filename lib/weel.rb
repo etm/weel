@@ -360,13 +360,13 @@ class WEEL
   end  # }}}
 
   class Position # {{{
-    attr_reader :position, :uuid
-    attr_accessor :detail, :passthrough
-    def initialize(position, uuid, detail=:at, passthrough=nil) # :at or :after or :unmark
+    attr_reader :position
+    attr_accessor :detail, :passthrough, :uuid
+    def initialize(position, detail=:at, passthrough=nil) # :at or :after or :unmark
       @position = position
       @detail = detail
-      @uuid = uuid
       @passthrough = passthrough
+      @uuid = 0
     end
     def as_json(*)
       jsn = { 'position' => @position, 'uuid' => @uuid }
@@ -799,10 +799,11 @@ class WEEL
       end
       wp = if branch[:branch_search_now] == true
         branch[:branch_search_now] = false
-        WEEL::Position.new(position, uuid, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
+        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
       else
-        WEEL::Position.new(position, uuid, skip ? :after : :at)
+        WEEL::Position.new(position, skip ? :after : :at)
       end
+      wp.uuid = uuid
       ipc[skip ? :after : :at] = [wp]
 
       @__weel_search_positions.delete(position)
