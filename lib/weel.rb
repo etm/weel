@@ -915,6 +915,8 @@ class WEEL
                     update
                   elsif waitingresult == WEEL::Signal::Salvage
                     salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
+                  elsif waitingresult == WEEL::Signal::Stop
+                    self.__weel_state = :stopping
                   else
                     finalize
                   end
