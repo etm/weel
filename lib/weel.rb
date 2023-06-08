@@ -360,13 +360,13 @@ class WEEL
   end  # }}}
 
   class Position # {{{
-    attr_reader :position
-    attr_accessor :detail, :passthrough, :uuid
-    def initialize(position, detail=:at, passthrough=nil) # :at or :after or :unmark
+    attr_reader :position, :uuid
+    attr_accessor :detail, :passthrough
+    def initialize(position, uuid, detail=:at, passthrough=nil) # :at or :after or :unmark
       @position = position
       @detail = detail
+      @uuid = uuid
       @passthrough = passthrough
-      @uuid = 0
     end
     def as_json(*)
       jsn = { 'position' => @position, 'uuid' => @uuid }
@@ -729,6 +729,7 @@ class WEEL
     end #}}}
     def stop(position) #{{{
       searchmode = __weel_is_in_search_mode(position)
+
       return if searchmode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
@@ -799,11 +800,10 @@ class WEEL
       end
       wp = if branch[:branch_search_now] == true
         branch[:branch_search_now] = false
-        WEEL::Position.new(position, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
+        WEEL::Position.new(position, uuid, skip ? :after : :at, @__weel_search_positions[position]&.passthrough)
       else
-        WEEL::Position.new(position, skip ? :after : :at)
+        WEEL::Position.new(position, uuid, skip ? :after : :at)
       end
-      wp.uuid = uuid
       ipc[skip ? :after : :at] = [wp]
 
       @__weel_search_positions.delete(position)
@@ -915,8 +915,6 @@ class WEEL
                     update
                   elsif waitingresult == WEEL::Signal::Salvage
                     salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
-                  elsif waitingresult == WEEL::Signal::Stop
-                    self.__weel_state = :stopping
                   else
                     finalize
                   end
