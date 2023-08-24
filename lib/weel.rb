@@ -354,7 +354,7 @@ class WEEL
     def callback(result=nil,options={}); end
     def mem_guard; end
 
-    def test_condition(mr,code); mr.instance_eval(code); end
+    def test_condition(mr,code,args={}); mr.instance_eval(code); end
     def join_branches(branches); end
     def manipulate(mr,code,where,result=nil,options=nil); mr.instance_eval(code,where,1); end
   end  # }}}
@@ -632,7 +632,7 @@ class WEEL
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
         if (condition.is_a?(String) || condition.is_a?(Proc)) && !__weel_sim
-          condition = __weel_eval_condition(condition)
+          condition = __weel_eval_condition(condition, args)
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end
@@ -692,7 +692,7 @@ class WEEL
       catch :escape do
         case condition[1]
           when :pre_test
-            while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
+            while __weel_eval_condition(condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
@@ -702,7 +702,7 @@ class WEEL
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
-            end while __weel_eval_condition(condition[0]) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
+            end while __weel_eval_condition(condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
         end
       end
     end # }}}
@@ -768,10 +768,10 @@ class WEEL
       end
     end #}}}
 
-    def __weel_eval_condition(condition) #{{{
+    def __weel_eval_condition(condition,args={}) #{{{
       begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless condition.is_a?(Proc)
-        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),condition)
+        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),condition,args)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
