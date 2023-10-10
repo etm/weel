@@ -895,6 +895,9 @@ class WEEL
                   @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
                 end
                 begin
+                  # cleanup after callback updates
+                  connectionwrapper.mem_guard
+
                   # with loop if catching Signal::Again
                   # handshake call and wait until it finished
                   waitingresult = nil
