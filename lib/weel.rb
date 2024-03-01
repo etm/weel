@@ -322,7 +322,7 @@ class WEEL
 
     def initialize(arguments,position=nil,continue=nil); end
 
-    def prepare(readonly, endpoints, parameters, replay=false); parameters; end
+    def prepare(readonly, endpoints, parameters); parameters; end
     def additional; {}; end
 
     def activity_handle(passthrough, parameters); end
@@ -460,10 +460,9 @@ class WEEL
       @__weel_connectionwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
-      @__weel_replay = false
       @__weel_sim = -1
     end #}}}
-    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args, :__weel_replay
+    attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
     attr_reader :__weel_state, :__weel_status
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
@@ -885,7 +884,7 @@ class WEEL
                     connectionwrapper.manipulate(rs,prepare,'Activity ' + position.to_s)
                   end
                 end
-                params = connectionwrapper.prepare(rs,endpoint,parameters,@__weel_replay)
+                params = connectionwrapper.prepare(rs,endpoint,parameters)
                 raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -1101,7 +1100,6 @@ class WEEL
       if newState == :stopping || newState == :finishing
         @__weel_status.nudge!
         __weel_recursive_continue(@__weel_main)
-        __weel_replay = false
       end
 
       @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
@@ -1257,11 +1255,6 @@ public
       end
     end
   end # }}}
-
-  def replay
-    @dslr.__weel_replay = true
-    start
-  end
 
   def sim # {{{
     stat = @dslr.__weel_state
