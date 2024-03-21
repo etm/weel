@@ -913,6 +913,8 @@ class WEEL
                     raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
                   end
 
+                  next if waitingresult == WEEL::Signal::Again && connectionwrapper.activity_result_value&.length == 0
+
                   code = if waitingresult == WEEL::Signal::Again
                     update
                   elsif waitingresult == WEEL::Signal::Salvage
