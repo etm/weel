@@ -486,7 +486,7 @@ class WEEL
     # Defines Workflow paths that can be executed parallel.
     # May contain multiple branches (parallel_branch)
     def parallel(type=nil,&block)# {{{
-      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
       Thread.current[:branches] = []
       Thread.current[:branch_traces] = {}
@@ -586,6 +586,7 @@ class WEEL
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_status] = true
           branch_parent[:branch_finished_count] += 1
+
           if branch_parent[:branch_finished_count] == branch_parent[:branch_wait_count] && self.__weel_state != :stopping && self.__weel_state != :finishing
             branch_parent[:branch_event].continue
           end
@@ -647,6 +648,7 @@ class WEEL
 
     # Defines a critical block (=Mutex)
     def critical(id,&block)# {{{
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       @__weel_critical ||= Mutex.new
       semaphore = nil
       @__weel_critical.synchronize do
@@ -901,6 +903,7 @@ class WEEL
                   # handshake call and wait until it finished
                   waitingresult = nil
                   waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+
                   raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
 
                   if Thread.current[:nolongernecessary]
@@ -970,6 +973,7 @@ class WEEL
       rescue Signal::NoLongerNecessary
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
+        wp.passthrough = nil
         wp.detail = :unmark
         @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :unmark => [wp]
       rescue Signal::StopSkipManipulate, Signal::Stop
@@ -1007,7 +1011,6 @@ class WEEL
     end # }}}
 
     def __weel_recursive_print(thread,indent='')# {{{
-      p "#{indent}#{thread}"
       if thread[:branches]
         thread[:branches].each do |b|
           __weel_recursive_print(b,indent+'  ')
