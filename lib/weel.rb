@@ -524,6 +524,7 @@ class WEEL
 
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
+
         Thread.current[:branches].each do |thread|
           if thread.alive? && thread[:branch_wait_count_cancel_active] == false
             thread[:nolongernecessary] = true
@@ -549,7 +550,7 @@ class WEEL
 
       branch_parent[:branches] << Thread.new(*vars) do |*local|
         Thread.current.abort_on_exception = true
-        Thread.current[:branch_status] = false
+        Thread.current[:branch_search] = @__weel_search_positions.any?
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
         Thread.current[:local] = local
@@ -584,10 +585,20 @@ class WEEL
         __weel_sim_stop(:parallel_branch,connectionwrapper,current_branch_sim_pos) if __weel_sim
 
         branch_parent[:mutex].synchronize do
-          Thread.current[:branch_status] = true
           branch_parent[:branch_finished_count] += 1
 
-          if branch_parent[:branch_finished_count] == branch_parent[:branch_wait_count] && self.__weel_state != :stopping && self.__weel_state != :finishing
+          if branch_parent[:branch_wait_count_cancel_condition] == :last
+            if branch_parent[:branch_finished_count] == branch_parent[:branch_wait_count] && self.__weel_state != :stopping && self.__weel_state != :finishing
+              branch_parent[:branches].each do |thread|
+                if thread.alive? && thread[:branch_wait_count_cancel_active] == false
+                  thread[:nolongernecessary] = true
+                  __weel_recursive_continue(thread)
+                end
+              end
+            end
+          end
+
+          if branch_parent[:branch_finished_count] == branch_parent[:branches].length && self.__weel_state != :stopping && self.__weel_state != :finishing
             branch_parent[:branch_event].continue
           end
         end
@@ -824,9 +835,9 @@ class WEEL
 
     def __weel_activity(position, type, endpoint, parameters, finalize=nil, update=nil, prepare=nil, salvage=nil)# {{{
       position = __weel_position_test position
+      searchmode = __weel_is_in_search_mode(position)
+      return if searchmode == true
       begin
-        searchmode = __weel_is_in_search_mode(position)
-        return if searchmode == true
         return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
         Thread.current[:continue] = Continue.new
@@ -996,7 +1007,7 @@ class WEEL
                 Thread.current[:branch_wait_count_cancel_active] = true
                 Thread.current[:branch_parent][:branch_wait_count_cancel] += 1
               end
-              if Thread.current[:branch_parent][:branch_wait_count_cancel] ==  Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
+              if Thread.current[:branch_parent][:branch_wait_count_cancel] == Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
                 Thread.current[:branch_parent][:branches].each do |thread|
                   if thread.alive? && thread[:branch_wait_count_cancel_active] == false
                     thread[:nolongernecessary] = true
@@ -1057,9 +1068,10 @@ class WEEL
 
     def __weel_is_in_search_mode(position = nil)# {{{
       branch = Thread.current
-      return false if @__weel_search_positions.empty? || branch[:branch_search] == false
 
-      if position && @__weel_search_positions.include?(position) # matching searchpos => start execution from here
+      return false unless branch[:branch_search]
+
+      if position && branch[:branch_search] && @__weel_search_positions.include?(position) # matching searchpos => start execution from here
         branch[:branch_search] = false # execute all activities in THIS branch (thread) after this point
         branch[:branch_search_now] = true # just now did we switch the search mode
         while branch.key?(:branch_parent) # also all parent branches should execute activities after this point, additional branches spawned by parent branches should still be in search mode
@@ -1069,7 +1081,7 @@ class WEEL
         end
         @__weel_search_positions[position].detail == :after
       else
-        branch[:branch_search] = true
+        true
       end
     end # }}}
 
@@ -1252,6 +1264,7 @@ public
   def start # {{{
     return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
     @dslr.__weel_main = Thread.new do
+      Thread.current[:branch_search] = true if @dslr.__weel_search_positions.any?
       begin
         __weel_control_flow(:running)
       rescue => e
