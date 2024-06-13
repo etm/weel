@@ -525,7 +525,7 @@ class WEEL
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
         # first set all to no_longer_neccessary
         Thread.current[:branches].each do |thread|
-          if thread.alive?
+          if thread.alive? && thread[:branch_wait_count_cancel_active] == false
             thread[:nolongernecessary] = true
             __weel_recursive_continue(thread)
           end
@@ -971,6 +971,7 @@ class WEEL
           wp.detail = :unmark
         end
       rescue Signal::NoLongerNecessary
+        connectionwrapper.inform_activity_done
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
         wp.passthrough = nil
@@ -991,13 +992,13 @@ class WEEL
         if Thread.current[:branch_parent]
           Thread.current[:branch_parent][:mutex].synchronize do
             if Thread.current[:branch_parent][:branch_wait_count_cancel_condition] == :first
-              if !Thread.current[:branch_wait_count_cancel_active]
+              if !Thread.current[:branch_wait_count_cancel_active] && Thread.current[:branch_parent][:branch_wait_count_cancel] <  Thread.current[:branch_parent][:branch_wait_count]
                 Thread.current[:branch_wait_count_cancel_active] = true
                 Thread.current[:branch_parent][:branch_wait_count_cancel] += 1
               end
               if Thread.current[:branch_parent][:branch_wait_count_cancel] ==  Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
                 Thread.current[:branch_parent][:branches].each do |thread|
-                  if thread.alive? && thread != Thread.current
+                  if thread.alive? && thread[:branch_wait_count_cancel_active] == false
                     thread[:nolongernecessary] = true
                     __weel_recursive_continue(thread)
                   end
