@@ -523,15 +523,12 @@ class WEEL
       cw.join_branches(Thread.current[:branch_traces])
 
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
-        # first set all to no_longer_neccessary
-
+        # first set all to no_longer_neccessary, just in case, but this should not be necessary
         Thread.current[:branches].each do |thread|
-          if thread.alive? && thread[:branch_wait_count_cancel_active] == false
-            thread[:nolongernecessary] = true
-            __weel_recursive_continue(thread)
-          end
+          thread[:nolongernecessary] = true
+          __weel_recursive_continue(thread)
         end
-        # wait for all
+        # wait for all, they should not even exist at this point
         Thread.current[:branches].each do |thread|
           __weel_recursive_join(thread)
         end
@@ -647,7 +644,9 @@ class WEEL
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end
-      __weel_protect_yield(&block) if __weel_is_in_search_mode || __weel_sim || condition
+      searchmode = __weel_is_in_search_mode
+      __weel_protect_yield(&block) if searchmode || __weel_sim || condition
+      Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
       __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
     end # }}}
     def otherwise(args={},&block) # {{{
