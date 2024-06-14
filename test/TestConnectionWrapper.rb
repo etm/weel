@@ -18,6 +18,7 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
     @__myhandler_position = position
     @__myhandler_continue = continue
     @__myhandler_returnValue = nil
+    @__myhandler_passthrough = nil
     @t = nil
   end
 
@@ -31,6 +32,10 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
   def activity_handle(passthrough, parameters) #{{{
     $long_track << "CALL #{@__myhandler_position}: passthrough=[#{passthrough}], endpoint=[#{@__myhandler_endpoint}], parameters=[#{parameters.inspect}]\n"
     $short_track << "C#{@__myhandler_position}"
+
+    if parameters[:async]
+      @__myhandler_passthrough = true
+    end
 
     if @__myhandler_endpoint == 'stop it'
       raise WEEL::Signal::Stop
@@ -76,7 +81,7 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
   # information about how to continue the call. This passthrough-value is given
   # to activity_handle if the workflow is configured to do so.
   def activity_passthrough_value #{{{
-    nil
+    @__myhandler_passthrough
   end #}}}
 
   # Called if the execution of the actual activity_handle is not necessary anymore
