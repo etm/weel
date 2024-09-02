@@ -355,6 +355,7 @@ class WEEL
     def mem_guard; end
 
     def test_condition(mr,code,args={}); mr.instance_eval(code); end
+    def eval_expression(mr,code); mr.instance_eval(code); end
     def join_branches(branches); end
     def manipulate(mr,code,where,result=nil,options=nil); mr.instance_eval(code,where,1); end
   end  # }}}
@@ -464,6 +465,9 @@ class WEEL
     end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
     attr_reader :__weel_state, :__weel_status
+
+    # DSL-Construct for translating expressions into static parameters
+    def →(code); __weel_eval_expression(code); end
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
     # Calls can also manipulate context (after the invoking the external services)
@@ -795,6 +799,22 @@ class WEEL
       end
     end #}}}
 
+    def __weel_eval_expression(expression) #{{{
+      begin
+        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless expression.is_a?(Proc)
+        expression.is_a?(Proc) ? expression.call : connectionwrapper.eval_expression(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),expression)
+      rescue NameError => err # don't look into it, or it will explode
+        # if you access $! here, BOOOM
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_expression: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        nil
+      rescue => err
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
+        nil
+      end
+    end #}}}
+
     def __weel_progress(position, uuid, skip=false) #{{{
       ipc = {}
       branch = Thread.current
@@ -854,9 +874,6 @@ class WEEL
         end
 
         wp = __weel_progress position, connectionwrapper.activity_uuid
-
-        # searchmode position is after, jump directly to vote_sync_after
-        raise Signal::Proceed if searchmode == :after
 
         case type
           when :manipulate
