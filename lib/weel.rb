@@ -467,7 +467,7 @@ class WEEL
     attr_reader :__weel_state, :__weel_status
 
     # DSL-Construct for translating expressions into static parameters
-    def →(code); __weel_eval_expression(code); end
+    def 🠊(code); __weel_eval_expression(code); end
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
     # Calls can also manipulate context (after the invoking the external services)
