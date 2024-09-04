@@ -1168,6 +1168,49 @@ public
     @dslr.__weel_state = :abandoned
   end # }}}
 
+  # get/set workflow description
+  def description(&blk)
+    self.description=(blk)
+  end
+  def description=(code) # {{{
+    (class << self; self; end).class_eval do
+      remove_method :__weel_control_flow if method_defined? :__weel_control_flow
+      define_method :__weel_control_flow do |state,final_state=:finished|
+        @dslr.__weel_positions.clear
+        @dslr.__weel_state = state
+        begin
+          if code.is_a? Proc
+            @dslr.instance_eval(&code)
+          else
+            @dslr.instance_eval(code)
+          end
+        rescue SyntaxError => se
+          @dslr.__weel_state = :stopping
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(se.message),code)
+        rescue NameError => err # don't look into it, or it will explode
+          @dslr.__weel_state = :stopping
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
+        rescue => err
+          @dslr.__weel_state = :stopping
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(err.message),code)
+        end
+        if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
+          ipc = { :unmark => [] }
+          @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp }
+          @dslr.__weel_positions.clear
+          @dslr.__weel_connectionwrapper::inform_position_change(@dslr.__weel_connectionwrapper_args,ipc)
+          @dslr.__weel_state = :finished
+        end
+        if @dslr.__weel_state == :simulating
+          @dslr.__weel_state = final_state
+        end
+        if @dslr.__weel_state == :stopping
+          @dslr.__weel_finalize
+        end
+      end
+    end
+  end # }}}
+
   # Set search positions
   # set new_weel_search to a boolean (or anything else) to start the process from beginning (reset serach positions)
   def search(new_weel_search=false) # {{{
