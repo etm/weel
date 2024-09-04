@@ -356,7 +356,7 @@ class WEEL
 
     def test_condition(dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def eval_expression(dataelements,endpoints,local,additional,code); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
-    def manipulate(readonly,dataelements,endpoints,local,additional,code,where,result=nil,options=nil)
+    def manipulate(readonly,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
       if readonly
         ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
       else
@@ -514,6 +514,7 @@ class WEEL
       Thread.current[:branch_wait_count_cancel] = 0
       Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == :first ) ? :first : :last
       1.upto Thread.current[:branches].size do
+        p 'x'
         Thread.current[:branch_event].wait
       end
 
@@ -526,11 +527,12 @@ class WEEL
         thread[:start_event]&.continue # sometimes start event might not even exist yet (i.e. race condition)
       end
 
-      Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+      Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:branches].length == 0
 
       __weel_sim_stop(:parallel,hw,pos) if __weel_sim
 
       cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+
       cw.join_branches(Thread.current[:branch_traces])
 
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
@@ -809,7 +811,7 @@ class WEEL
     def __weel_eval_expression(expression) #{{{
       begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-        connectionwrapper.eval_expression(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),expression)
+        connectionwrapper.eval_expression(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,expression)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
@@ -882,6 +884,7 @@ class WEEL
 
         wp = __weel_progress position, connectionwrapper.activity_uuid
 
+
         case type
           when :manipulate
             raise Signal::Stop unless connectionwrapper.vote_sync_before
@@ -890,7 +893,7 @@ class WEEL
             if finalize.is_a?(String)
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
-              connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
+              struct = connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
               connectionwrapper.inform_manipulate_change(
                 ((struct && struct.changed_status) ? @__weel_status : nil),
                 ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
@@ -906,10 +909,12 @@ class WEEL
             begin
               again = catch Signal::Again do
                 connectionwrapper.mem_guard
-                if prepare
+                struct = if prepare
                   connectionwrapper.manipulate(true,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
+                else
+                  ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
                 end
-                params = connectionwrapper.prepare(rs,endpoint,parameters)
+                params = connectionwrapper.prepare(struct,endpoint,parameters)
                 raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
