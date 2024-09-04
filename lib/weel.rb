@@ -354,10 +354,17 @@ class WEEL
     def callback(result=nil,options={}); end
     def mem_guard; end
 
-    def test_condition(mr,code,args={}); mr.instance_eval(code); end
-    def eval_expression(mr,code); mr.instance_eval(code); end
+    def test_condition(dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
+    def eval_expression(dataelements,endpoints,local,additional,code); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
+    def manipulate(readonly,dataelements,endpoints,local,additional,code,where,result=nil,options=nil)
+      if readonly
+        ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+      else
+        ManipulateStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+      end
+    end
+
     def join_branches(branches); end
-    def manipulate(mr,code,where,result=nil,options=nil); mr.instance_eval(code,where,1); end
   end  # }}}
 
   class Position # {{{
@@ -639,11 +646,11 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition,args={},&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
+      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => (condition.is_a?(String) ? condition : nil))) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
-        if (condition.is_a?(String) || condition.is_a?(Proc)) && !__weel_sim
+        if condition.is_a?(String) && !__weel_sim
           condition = __weel_eval_condition(condition, args)
         end
         Thread.current[:alternative_executed][-1] = true if condition
@@ -651,7 +658,7 @@ class WEEL
       searchmode = __weel_is_in_search_mode
       __weel_protect_yield(&block) if searchmode || __weel_sim || condition
       Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
-      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => ((condition.is_a?(String) || condition.is_a?(Proc)) ? condition : nil))) if __weel_sim
+      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => (condition.is_a?(String) ? condition : nil))) if __weel_sim
     end # }}}
     def otherwise(args={},&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
@@ -677,7 +684,7 @@ class WEEL
 
     # Defines a Cycle (loop/iteration)
     def loop(condition,args={},&block)# {{{
-      unless condition.is_a?(Array) && (condition[0].is_a?(Proc) || condition[0].is_a?(String)) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
+      unless condition[0].is_a?(String) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
         raise "condition must be called pre_test{} or post_test{}"
       end
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
@@ -694,7 +701,7 @@ class WEEL
         end
       end
       if __weel_sim
-        cond = condition[0].is_a?(Proc) ? true : condition[0]
+        cond = condition[0]
         hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
         catch :escape do
           __weel_protect_yield(&block)
@@ -785,8 +792,8 @@ class WEEL
 
     def __weel_eval_condition(condition,args={}) #{{{
       begin
-        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless condition.is_a?(Proc)
-        condition.is_a?(Proc) ? condition.call : connectionwrapper.test_condition(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),condition,args)
+        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+        connectionwrapper.test_condition(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
@@ -801,8 +808,8 @@ class WEEL
 
     def __weel_eval_expression(expression) #{{{
       begin
-        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args unless expression.is_a?(Proc)
-        expression.is_a?(Proc) ? expression.call : connectionwrapper.eval_expression(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),expression)
+        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+        connectionwrapper.eval_expression(ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional),expression)
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
@@ -880,20 +887,14 @@ class WEEL
             raise Signal::Stop unless connectionwrapper.vote_sync_before
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-            if finalize.is_a?(Proc) || finalize.is_a?(String)
+            if finalize.is_a?(String)
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
-              if finalize.is_a?(Proc)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
-                mr.instance_eval(&finalize)
-              elsif finalize.is_a?(String)
-                mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
-                connectionwrapper.manipulate(mr,finalize,'Activity ' + position.to_s)
-              end
+              connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
               connectionwrapper.inform_manipulate_change(
-                ((mr && mr.changed_status) ? @__weel_status : nil),
-                ((mr && mr.changed_data.any?) ? mr.changed_data.uniq : nil),
-                ((mr && mr.changed_endpoints.any?) ? mr.changed_endpoints.uniq : nil),
+                ((struct && struct.changed_status) ? @__weel_status : nil),
+                ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
+                ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
                 @__weel_data,
                 @__weel_endpoints
               )
@@ -905,13 +906,8 @@ class WEEL
             begin
               again = catch Signal::Again do
                 connectionwrapper.mem_guard
-                rs = ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
                 if prepare
-                  if prepare.is_a?(Proc)
-                    rs.instance_exec(&prepare)
-                  elsif prepare.is_a?(String)
-                    connectionwrapper.manipulate(rs,prepare,'Activity ' + position.to_s)
-                  end
+                  connectionwrapper.manipulate(true,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
                 end
                 params = connectionwrapper.prepare(rs,endpoint,parameters)
                 raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
@@ -952,30 +948,19 @@ class WEEL
                   else
                     finalize
                   end
-                  if code.is_a?(Proc) || code.is_a?(String)
+                  if code.is_a?(String)
                     connectionwrapper.inform_activity_manipulate
-                    if code.is_a?(Proc)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
-                      ma = catch Signal::Again do
-                        case code.arity
-                          when 1; mr.instance_exec(connectionwrapper.activity_result_value,&code)
-                          when 2; mr.instance_exec(connectionwrapper.activity_result_value,&code)
-                          else
-                            mr.instance_exec(&code)
-                        end
-                        'yes' # ma sadly will have nil when i just throw
-                      end
-                    elsif code.is_a?(String)
-                      mr = ManipulateStructure.new(@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional)
-                      ma = catch Signal::Again do
-                        connectionwrapper.manipulate(mr,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
-                        'yes' # ma sadly will have nil when i just throw
-                      end
+                    struct = nil
+
+                    # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
+                    ma = catch Signal::Again do
+                      struct = connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                      Signal::Proceed
                     end
                     connectionwrapper.inform_manipulate_change(
-                      (mr.changed_status ? @__weel_status : nil),
-                      (mr.changed_data.any? ? mr.changed_data.uniq : nil),
-                      (mr.changed_endpoints.any? ? mr.changed_endpoints.uniq : nil),
+                      ((struct && struct.changed_status) ? @__weel_status : nil),
+                      ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
+                      ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
                       @__weel_data,
                       @__weel_endpoints
                     )
@@ -1220,49 +1205,6 @@ public
   end # }}}
   def status # {{{
     @dslr.__weel_status
-  end # }}}
-
-  # get/set workflow description
-  def description(&blk)
-    self.description=(blk)
-  end
-  def description=(code) # {{{
-    (class << self; self; end).class_eval do
-      remove_method :__weel_control_flow if method_defined? :__weel_control_flow
-      define_method :__weel_control_flow do |state,final_state=:finished|
-        @dslr.__weel_positions.clear
-        @dslr.__weel_state = state
-        begin
-          if code.is_a? Proc
-            @dslr.instance_eval(&code)
-          else
-            @dslr.instance_eval(code)
-          end
-        rescue SyntaxError => se
-          @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(se.message),code)
-        rescue NameError => err # don't look into it, or it will explode
-          @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
-        rescue => err
-          @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(err.message),code)
-        end
-        if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
-          ipc = { :unmark => [] }
-          @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp }
-          @dslr.__weel_positions.clear
-          @dslr.__weel_connectionwrapper::inform_position_change(@dslr.__weel_connectionwrapper_args,ipc)
-          @dslr.__weel_state = :finished
-        end
-        if @dslr.__weel_state == :simulating
-          @dslr.__weel_state = final_state
-        end
-        if @dslr.__weel_state == :stopping
-          @dslr.__weel_finalize
-        end
-      end
-    end
   end # }}}
 
   # Stop the workflow execution
