@@ -86,6 +86,17 @@ class WEEL
         end
       end
     end
+    def update(d,e,s)
+      d.each do |k,v|
+        data.send(k+'=',v)
+      end if d
+      e.each do |k,v|
+        endpoints.send(k+'=',v)
+      end if e
+      if s
+        status.update(s['id'],s['message'])
+      end
+    end
     def data
       ReadHash.new(@__weel_data)
     end
@@ -139,6 +150,18 @@ class WEEL
       end
     end
 
+    def update(d,e,s)
+      d.each do |k,v|
+        data.send(k+'=',v)
+      end if d
+      e.each do |k,v|
+        endpoints.send(k+'=',v)
+      end if e
+      if s
+        status.update(s['id'],s['message'])
+      end
+    end
+
     def changed_data
       @touched_data.each do |e|
         td = Marshal.dump(@__weel_data[e]) rescue nil
@@ -146,10 +169,10 @@ class WEEL
           @changed_data << e
         end
       end
-      @changed_data
+      @changed_data.uniq
     end
     def changed_endpoints
-      @changed_endpoints
+      @changed_endpoints.uniq
     end
 
     def original_data
@@ -235,6 +258,12 @@ class WEEL
     end
     def wait_until_nudged!
       @nudge.pop
+    end
+    def to_json(*a)
+      {
+        'id' => @id,
+        'message' => @message
+      }.to_json(*a)
     end
     attr_reader :id, :message
   end #}}}
@@ -514,7 +543,6 @@ class WEEL
       Thread.current[:branch_wait_count_cancel] = 0
       Thread.current[:branch_wait_count_cancel_condition] = (type.is_a?(Hash) && type[:cancel] != nil && type[:cancel] == :first ) ? :first : :last
       1.upto Thread.current[:branches].size do
-        p 'x'
         Thread.current[:branch_event].wait
       end
 
