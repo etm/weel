@@ -385,11 +385,13 @@ class WEEL
 
     def test_condition(dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def eval_expression(dataelements,endpoints,local,additional,code); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
-    def manipulate(readonly,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
-      if readonly
-        ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
-      else
-        ManipulateStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+    def manipulate(readonly,lock,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
+      lock.synchronize do
+        if readonly
+          ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+        else
+          ManipulateStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+        end
       end
     end
 
@@ -498,9 +500,10 @@ class WEEL
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
       @__weel_sim = -1
+      @__weel_lock = Mutex.new
     end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
-    attr_reader :__weel_state, :__weel_status
+    attr_reader :__weel_state, :__weel_status, :__weel_status
 
     # DSL-Construct for translating expressions into static parameters
     def 🠊(code); __weel_eval_expression(code); end
@@ -912,7 +915,6 @@ class WEEL
 
         wp = __weel_progress position, connectionwrapper.activity_uuid
 
-
         case type
           when :manipulate
             raise Signal::Stop unless connectionwrapper.vote_sync_before
@@ -921,7 +923,7 @@ class WEEL
             if finalize.is_a?(String)
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
-              struct = connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
+              struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
               connectionwrapper.inform_manipulate_change(
                 ((struct && struct.changed_status) ? @__weel_status : nil),
                 ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
@@ -938,8 +940,9 @@ class WEEL
               again = catch Signal::Again do
                 connectionwrapper.mem_guard
                 struct = if prepare
-                  connectionwrapper.manipulate(true,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
+                  connectionwrapper.manipulate(true,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
                 else
+                  # just the read structure, no code exec necessary
                   ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
                 end
                 params = connectionwrapper.prepare(struct,endpoint,parameters)
@@ -987,7 +990,7 @@ class WEEL
 
                     # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
                     ma = catch Signal::Again do
-                      struct = connectionwrapper.manipulate(false,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                      struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                       Signal::Proceed
                     end
                     connectionwrapper.inform_manipulate_change(
