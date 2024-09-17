@@ -957,7 +957,8 @@ class WEEL
                 wp.detail = :after
                 @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
               end
-            end # there is a catch
+              again = nil
+            end while again == Signal::Again # there is a catch
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
