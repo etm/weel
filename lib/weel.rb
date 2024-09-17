@@ -38,6 +38,7 @@ class WEEL
     class Proceed < Exception; end
     class NoLongerNecessary < Exception; end
     class Again < Exception; end
+    class UpdateAgain < Exception; end
     class Error < Exception; end
     class Salvage < Exception; end
   end # }}}
@@ -269,9 +270,8 @@ class WEEL
   end #}}}
 
   class ReadHash # {{{
-    def initialize(values,sim=false)
+    def initialize(values)
       @__weel_values = values
-      @__weel_sim = sim
     end
 
     def to_json(*args)
@@ -279,29 +279,25 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      if @__weel_sim
-        "➤#{name}"
+      if args.empty? && @__weel_values.key?(name)
+        @__weel_values[name]
+      elsif args.empty? && @__weel_values.key?(name.to_s)
+        @__weel_values[name.to_s]
+      elsif name.to_s[-1..-1] == "=" && args.length == 1
+        temp = name.to_s[0..-2]
+        @__weel_values[temp.to_sym] = args[0]
+      elsif name.to_s == "[]=" && args.length == 2
+        @__weel_values[args[0]] = args[1]
+      elsif name.to_s == "[]" && args.length == 1
+        @__weel_values[args[0]]
       else
-        if args.empty? && @__weel_values.key?(name)
-          @__weel_values[name]
-        elsif args.empty? && @__weel_values.key?(name.to_s)
-          @__weel_values[name.to_s]
-        elsif name.to_s[-1..-1] == "=" && args.length == 1
-          temp = name.to_s[0..-2]
-          @__weel_values[temp.to_sym] = args[0]
-        elsif name.to_s == "[]=" && args.length == 2
-          @__weel_values[args[0]] = args[1]
-        elsif name.to_s == "[]" && args.length == 1
-          @__weel_values[args[0]]
-        else
-          nil
-        end
+        nil
       end
     end
   end # }}}
 
   class ReadOnlyHash # {{{
-    def initialize(values,sim=false)
+    def initialize(values)
       @__weel_values = values.transform_values do |v|
         if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
           v.root.to_doc
@@ -313,7 +309,6 @@ class WEEL
           end
         end
       end
-      @__weel_sim = sim
     end
 
     def to_json(*args)
@@ -321,23 +316,19 @@ class WEEL
     end
 
     def method_missing(name,*args)
-      if @__weel_sim
-        "➤#{name}"
+      if args.empty? && @__weel_values.key?(name)
+        @__weel_values[name]
+      elsif args.empty? && @__weel_values.key?(name.to_s)
+        @__weel_values[name.to_s]
+      elsif name.to_s[-1..-1] == "=" && args.length == 1
+        temp = name.to_s[0..-2]
+        @__weel_values[temp.to_sym] = args[0]
+      elsif name.to_s == "[]=" && args.length == 2
+        @__weel_values[args[0]] = args[1]
+      elsif name.to_s == "[]" && args.length == 1
+        @__weel_values[args[0]]
       else
-        if args.empty? && @__weel_values.key?(name)
-          @__weel_values[name]
-        elsif args.empty? && @__weel_values.key?(name.to_s)
-          @__weel_values[name.to_s]
-        elsif name.to_s[-1..-1] == "=" && args.length == 1
-          temp = name.to_s[0..-2]
-          @__weel_values[temp.to_sym] = args[0]
-        elsif name.to_s == "[]=" && args.length == 2
-          @__weel_values[args[0]] = args[1]
-        elsif name.to_s == "[]" && args.length == 1
-          @__weel_values[args[0]]
-        else
-          nil
-        end
+        nil
       end
     end
   end # }}}
@@ -374,12 +365,6 @@ class WEEL
     def vote_sync_before(parameters=nil); true; end
     def vote_sync_after; true; end
 
-    # type       => activity, loop, parallel, choice
-    # nesting    => none, start, end
-    # eid        => id's also for control structures
-    # parameters => stuff given to the control structure
-    def simulate(type,nesting,sequence,parent,parameters={}); end
-
     def callback(result=nil,options={}); end
     def mem_guard; end
 
@@ -396,6 +381,7 @@ class WEEL
     end
 
     def join_branches(branches); end
+    def split_branches(branches); end
   end  # }}}
 
   class Position # {{{
@@ -499,7 +485,7 @@ class WEEL
       @__weel_connectionwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
-      @__weel_sim = -1
+      @__weel_sim = false
       @__weel_lock = Mutex.new
     end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
@@ -538,8 +524,6 @@ class WEEL
       Thread.current[:branch_event] = Continue.new
       Thread.current[:mutex] = Mutex.new
 
-      hw, pos = __weel_sim_start(:parallel) if __weel_sim
-
       __weel_protect_yield(&block)
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
@@ -548,6 +532,9 @@ class WEEL
       1.upto Thread.current[:branches].size do
         Thread.current[:branch_event].wait
       end
+
+      cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+      cw.split_branches(Thread.current[:branch_traces])
 
       Thread.current[:branches].each do |thread|
         # decide after executing block in parallel cause for coopis
@@ -559,10 +546,6 @@ class WEEL
       end
 
       Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:branches].length == 0
-
-      __weel_sim_stop(:parallel,hw,pos) if __weel_sim
-
-      cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
 
       cw.join_branches(Thread.current[:branch_traces])
 
@@ -584,11 +567,6 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
-      if __weel_sim
-        # catch the potential execution in loops inside a parallel
-        current_branch_sim_pos = branch_parent[:branch_sim_pos]
-      end
-
       branch_parent[:branches] << Thread.new(*vars) do |*local|
         Thread.current.abort_on_exception = true
         Thread.current[:branch_search] = @__weel_search_positions.any?
@@ -601,10 +579,6 @@ class WEEL
           branch_parent[:branch_traces_ids] += 1
         end
 
-        if __weel_sim
-          Thread.current[:branch_sim_pos] = @__weel_sim += 1
-        end
-
         # parallel_branch could be possibly around an alternative. Thus thread has to inherit the alternative_executed
         # after branching, update it in the parent (TODO)
         if branch_parent[:alternative_executed] && branch_parent[:alternative_executed].length > 0
@@ -614,16 +588,9 @@ class WEEL
         branch_parent[:branch_event].continue
         Thread.current[:start_event].wait unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
 
-        if __weel_sim
-          connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-          connectionwrapper.simulate(:parallel_branch,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos)
-        end
-
         unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
           __weel_protect_yield(*local, &block)
         end
-
-        __weel_sim_stop(:parallel_branch,connectionwrapper,current_branch_sim_pos) if __weel_sim
 
         branch_parent[:mutex].synchronize do
           branch_parent[:branch_finished_count] += 1
@@ -666,9 +633,11 @@ class WEEL
       Thread.current[:alternative_mode] ||= []
       Thread.current[:alternative_executed] << false
       Thread.current[:alternative_mode] << mode
-      hw, pos = __weel_sim_start(:choose,:mode => Thread.current[:alternative_mode].last) if __weel_sim
+
+      cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
+      cw.split_branches(Thread.current[:branch_traces])
+
       __weel_protect_yield(&block)
-      __weel_sim_stop(:choose,hw,pos,:mode => Thread.current[:alternative_mode].last) if __weel_sim
       Thread.current[:alternative_executed].pop
       Thread.current[:alternative_mode].pop
       nil
@@ -679,25 +648,21 @@ class WEEL
     # searchmode is active (to find the starting position)
     def alternative(condition,args={},&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:alternative,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => (condition.is_a?(String) ? condition : nil))) if __weel_sim
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
         return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
-        if condition.is_a?(String) && !__weel_sim
+        if condition.is_a?(String)
           condition = __weel_eval_condition(condition, args)
         end
         Thread.current[:alternative_executed][-1] = true if condition
       end
       searchmode = __weel_is_in_search_mode
-      __weel_protect_yield(&block) if searchmode || __weel_sim || condition
+      __weel_protect_yield(&block) if searchmode || condition
       Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
-      __weel_sim_stop(:alternative,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last, :condition => (condition.is_a?(String) ? condition : nil))) if __weel_sim
     end # }}}
     def otherwise(args={},&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      hw, pos = __weel_sim_start(:otherwise,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
-      __weel_protect_yield(&block) if __weel_is_in_search_mode || __weel_sim || !Thread.current[:alternative_executed].last
-      __weel_sim_stop(:otherwise,hw,pos,args.merge(:mode => Thread.current[:alternative_mode].last)) if __weel_sim
+      __weel_protect_yield(&block) if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -732,15 +697,6 @@ class WEEL
           ### condition first thing
           condition[1] = :pre_test
         end
-      end
-      if __weel_sim
-        cond = condition[0]
-        hw, pos = __weel_sim_start(:loop,args.merge(:testing=>condition[1],:condition=>cond))
-        catch :escape do
-          __weel_protect_yield(&block)
-        end
-        __weel_sim_stop(:loop,hw,pos,args.merge(:testing=>condition[1],:condition=>cond))
-        return
       end
       loop_guard = 0
       loop_id = SecureRandom.uuid
@@ -802,7 +758,7 @@ class WEEL
       @__weel_status
     end # }}}
     def data # {{{
-      ReadOnlyHash.new(@__weel_data,__weel_sim)
+      ReadOnlyHash.new(@__weel_data)
     end # }}}
     def endpoints # {{{
       ReadHash.new(@__weel_endpoints)
@@ -902,11 +858,6 @@ class WEEL
         Thread.current[:continue] = Continue.new
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args, position, Thread.current[:continue]
 
-        if __weel_sim
-          connectionwrapper.simulate(:activity,:none,@__weel_sim += 1,Thread.current[:branch_sim_pos],:position => position,:parameters => parameters,:endpoint => endpoint,:type => type,:finalize => finalize.is_a?(String) ? finalize : nil)
-          return
-        end
-
         # gather traces in threads to point to join
         if Thread.current[:branch_parent] && Thread.current[:branch_traces_id]
           Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] ||= []
@@ -936,81 +887,77 @@ class WEEL
               @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
             end
           when :call
-            begin
-              again = catch Signal::Again do
-                connectionwrapper.mem_guard
-                struct = if prepare
-                  connectionwrapper.manipulate(true,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
-                else
-                  # just the read structure, no code exec necessary
-                  ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
-                end
-                params = connectionwrapper.prepare(struct,endpoint,parameters)
-                raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
-                raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
-
-                connectionwrapper.activity_handle wp.passthrough, params
-                wp.passthrough = connectionwrapper.activity_passthrough_value
-                unless wp.passthrough.nil?
-                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
-                end
-                begin
-                  # cleanup after callback updates
-                  connectionwrapper.mem_guard
-
-                  # with loop if catching Signal::Again
-                  # handshake call and wait until it finished
-                  waitingresult = nil
-                  waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
-
-                  raise waitingresult[1] if !waitingresult.nil? && waitingresult.is_a?(Array) && waitingresult.length == 2 && waitingresult[0] == WEEL::Signal::Error
-
-                  if Thread.current[:nolongernecessary]
-                    connectionwrapper.activity_no_longer_necessary
-                    raise Signal::NoLongerNecessary
-                  end
-                  if self.__weel_state == :stopping || self.__weel_state == :finishing
-                    connectionwrapper.activity_stop
-                    wp.passthrough = connectionwrapper.activity_passthrough_value
-                    raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
-                  end
-
-                  next if waitingresult == WEEL::Signal::Again && connectionwrapper.activity_result_value&.length == 0
-
-                  code = if waitingresult == WEEL::Signal::Again
-                    update
-                  elsif waitingresult == WEEL::Signal::Salvage
-                    salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
-                  else
-                    finalize
-                  end
-                  if code.is_a?(String)
-                    connectionwrapper.inform_activity_manipulate
-                    struct = nil
-
-                    # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
-                    ma = catch Signal::Again do
-                      struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
-                      Signal::Proceed
-                    end
-                    connectionwrapper.inform_manipulate_change(
-                      ((struct && struct.changed_status) ? @__weel_status : nil),
-                      ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
-                      ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
-                      @__weel_data,
-                      @__weel_endpoints
-                    )
-                    throw(Signal::Again, Signal::Again) if ma.nil?
-                  end
-                end while waitingresult == Signal::Again
-                if connectionwrapper.activity_passthrough_value.nil?
-                  connectionwrapper.inform_activity_done
-                  wp.passthrough = nil
-                  wp.detail = :after
-                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
-                end
+            again = catch Signal::Again do
+              connectionwrapper.mem_guard
+              struct = if prepare
+                connectionwrapper.manipulate(true,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
+              else
+                # just the read structure, no code exec necessary
+                ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
               end
-            end while again == Signal::Again
+              params = connectionwrapper.prepare(struct,endpoint,parameters)
+              raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
+              raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
+
+              connectionwrapper.activity_handle wp.passthrough, params
+              wp.passthrough = connectionwrapper.activity_passthrough_value
+              unless wp.passthrough.nil?
+                @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
+              end
+              begin
+                # cleanup after callback updates
+                connectionwrapper.mem_guard
+
+                # with loop if catching Signal::Again
+                # handshake call and wait until it finished
+                waitingresult = nil
+                waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+
+                if Thread.current[:nolongernecessary]
+                  connectionwrapper.activity_no_longer_necessary
+                  raise Signal::NoLongerNecessary
+                end
+                if self.__weel_state == :stopping || self.__weel_state == :finishing
+                  connectionwrapper.activity_stop
+                  wp.passthrough = connectionwrapper.activity_passthrough_value
+                  raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
+                end
+
+                next if waitingresult == WEEL::Signal::UpdateAgain && connectionwrapper.activity_result_value&.length == 0
+
+                code = if waitingresult == WEEL::Signal::UpdateAgain
+                  update
+                elsif waitingresult == WEEL::Signal::Salvage
+                  salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
+                else
+                  finalize
+                end
+                if code.is_a?(String)
+                  connectionwrapper.inform_activity_manipulate
+                  struct = nil
+
+                  # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
+                  ma = catch Signal::Again do
+                    struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                    Signal::Proceed
+                  end
+                  connectionwrapper.inform_manipulate_change(
+                    ((struct && struct.changed_status) ? @__weel_status : nil),
+                    ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
+                    ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
+                    @__weel_data,
+                    @__weel_endpoints
+                  )
+                  throw(Signal::Again, Signal::Again) if ma.nil? || ma == Signal::Again # this signal again loops "there is a catch" because rescue signal throw that throughly restarts the task
+                end
+              end while waitingresult == Signal::UpdateAgain # this signal again loops because async update, proposal: rename to UpdateAgain
+              if connectionwrapper.activity_passthrough_value.nil?
+                connectionwrapper.inform_activity_done
+                wp.passthrough = nil
+                wp.detail = :after
+                @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
+              end
+            end # there is a catch
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
@@ -1121,23 +1068,6 @@ class WEEL
         true
       end
     end # }}}
-
-    def __weel_sim #{{{
-      @__weel_state == :simulating
-    end #}}}
-
-    def __weel_sim_start(what,options={}) #{{{
-      current_branch_sim_pos = Thread.current[:branch_sim_pos]
-      Thread.current[:branch_sim_pos] = @__weel_sim += 1
-      connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-      connectionwrapper.simulate(what,:start,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
-      [connectionwrapper, current_branch_sim_pos]
-    end #}}}
-
-    def __weel_sim_stop(what,connectionwrapper,current_branch_sim_pos,options={}) #{{{
-      connectionwrapper.simulate(what,:end,Thread.current[:branch_sim_pos],current_branch_sim_pos,options)
-      Thread.current[:branch_sim_pos] = current_branch_sim_pos
-    end #}}}
 
   public
     def __weel_finalize #{{{
