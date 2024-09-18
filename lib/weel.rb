@@ -66,10 +66,6 @@ class WEEL
         'data' => @__weel_data,
         'endpoints' => @__weel_endpoints,
         'additional' => @additional,
-        'status' => {
-          'id' => @__weel_status.id,
-          'message' => @__weel_status.message
-        }
       }.to_json(*a)
     end
 
@@ -94,9 +90,6 @@ class WEEL
       e.each do |k,v|
         endpoints.send(k+'=',v)
       end if e
-      if s
-        status.update(s['id'],s['message'])
-      end
     end
     def data
       ReadHash.new(@__weel_data)
@@ -297,7 +290,6 @@ class WEEL
       end
     end
   end # }}}
-
   class ReadOnlyHash # {{{
     def initialize(values)
       @__weel_values = values.transform_values do |v|
