@@ -105,8 +105,9 @@ class WEEL
       ReadHash.new(@__weel_endpoints)
     end
     def local
-      @__weel_local.first
+      @__weel_local&.first
     end
+    attr_reader :additional
   end # }}}
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status,local,additional)
@@ -195,11 +196,12 @@ class WEEL
       ManipulateHash.new(@__weel_endpoints,@touched_endpoints,@changed_endpoints)
     end
     def local
-      @__weel_local.first
+      @__weel_local&.first
     end
     def status
       @__weel_status
     end
+    attr_reader :additional
   end # }}}
   class ManipulateHash # {{{
     attr_reader :__weel_touched, :__weel_changed
@@ -333,6 +335,13 @@ class WEEL
     end
   end # }}}
 
+  class ProcString #{{{
+    attr_reader :code
+    def initialize(code)
+      @code = code
+    end
+  end #}}}
+
   class ConnectionWrapperBase # {{{
     def self::loop_guard(arguments,lid,count); false; end
     def self::inform_state_change(arguments,newstate); end
@@ -342,7 +351,6 @@ class WEEL
 
     def initialize(arguments,position=nil,continue=nil); end
 
-    def prepare(readonly, endpoints, parameters); parameters; end
     def additional; {}; end
 
     def activity_handle(passthrough, parameters); end
@@ -368,8 +376,8 @@ class WEEL
     def callback(result=nil,options={}); end
     def mem_guard; end
 
+    def prepare(readonly, endpoints, parameters); parameters; end
     def test_condition(dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
-    def eval_expression(dataelements,endpoints,local,additional,code); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def manipulate(readonly,lock,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
       lock.synchronize do
         if readonly
@@ -492,7 +500,7 @@ class WEEL
     attr_reader :__weel_state, :__weel_status, :__weel_status
 
     # DSL-Construct for translating expressions into static parameters
-    def 🠊(code); __weel_eval_expression(code); end
+    def 🠊(code); ProcString.new(code); end
 
     # DSL-Constructs for atomic calls to external services (calls) and pure context manipulations (manipulate).
     # Calls can also manipulate context (after the invoking the external services)
@@ -795,22 +803,6 @@ class WEEL
       end
     end #}}}
 
-    def __weel_eval_expression(expression) #{{{
-      begin
-        connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-        connectionwrapper.eval_expression(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,expression)
-      rescue NameError => err # don't look into it, or it will explode
-        # if you access $! here, BOOOM
-        self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_expression: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
-        nil
-      rescue => err
-        self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
-        nil
-      end
-    end #}}}
-
     def __weel_progress(position, uuid, skip=false) #{{{
       ipc = {}
       branch = Thread.current
@@ -896,6 +888,7 @@ class WEEL
                 ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
               end
               params = connectionwrapper.prepare(struct,endpoint,parameters)
+
               raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
               raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
@@ -957,8 +950,7 @@ class WEEL
                 wp.detail = :after
                 @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
               end
-              again = nil
-            end while again == Signal::Again # there is a catch
+            end # there is a catch
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
