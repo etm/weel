@@ -368,7 +368,7 @@ class WEEL
     def callback(result=nil,options={}); end
     def mem_guard; end
 
-    def prepare(readonly, endpoints, parameters); parameters; end
+    def prepare(lock,dataelements,endpoints,status,local,additional,code,exec_endpoints,exec_parameters); end
     def test_condition(dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def manipulate(readonly,lock,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
       lock.synchronize do
@@ -873,13 +873,7 @@ class WEEL
           when :call
             again = catch Signal::Again do
               connectionwrapper.mem_guard
-              struct = if prepare
-                connectionwrapper.manipulate(true,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,'Activity ' + position.to_s)
-              else
-                # just the read structure, no code exec necessary
-                ReadStructure.new(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional)
-              end
-              params = connectionwrapper.prepare(struct,endpoint,parameters)
+              params = connectionwrapper.prepare(@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,endpoint,parameters)
 
               raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
               raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
