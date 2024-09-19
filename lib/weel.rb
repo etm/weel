@@ -726,6 +726,10 @@ class WEEL
         self.__weel_state = :stopping
         @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
+      rescue WEEL::Signal::Error => err
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
+        nil
       rescue => err
         self.__weel_state = :stopping
         @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
@@ -858,12 +862,12 @@ class WEEL
 
                 next if waitingresult == WEEL::Signal::UpdateAgain && connectionwrapper.activity_result_value&.length == 0
 
-                code = if waitingresult == WEEL::Signal::UpdateAgain
-                  update
+                code, cmess = if waitingresult == WEEL::Signal::UpdateAgain
+                  [update, 'update']
                 elsif waitingresult == WEEL::Signal::Salvage
-                  salvage || raise('HTTP Error. The service return status was not between 200 and 300.')
+                  [salvage, 'salvage'] || raise('HTTP Error. The service return status was not between 200 and 300.')
                 else
-                  finalize
+                  [finalize, 'finalize']
                 end
                 if code.is_a?(String)
                   connectionwrapper.inform_activity_manipulate
@@ -871,7 +875,7 @@ class WEEL
 
                   # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
                   ma = catch Signal::Again do
-                    struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                    struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                     Signal::Proceed
                   end
                   connectionwrapper.inform_manipulate_change(
