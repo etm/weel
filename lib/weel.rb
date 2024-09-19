@@ -290,42 +290,6 @@ class WEEL
       end
     end
   end # }}}
-  class ReadOnlyHash # {{{
-    def initialize(values)
-      @__weel_values = values.transform_values do |v|
-        if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
-          v.root.to_doc
-        else
-          begin
-            Marshal.load(Marshal.dump(v))
-          rescue
-            v.to_s rescue nil
-          end
-        end
-      end
-    end
-
-    def to_json(*args)
-      @__weel_values.to_json(*args)
-    end
-
-    def method_missing(name,*args)
-      if args.empty? && @__weel_values.key?(name)
-        @__weel_values[name]
-      elsif args.empty? && @__weel_values.key?(name.to_s)
-        @__weel_values[name.to_s]
-      elsif name.to_s[-1..-1] == "=" && args.length == 1
-        temp = name.to_s[0..-2]
-        @__weel_values[temp.to_sym] = args[0]
-      elsif name.to_s == "[]=" && args.length == 2
-        @__weel_values[args[0]] = args[1]
-      elsif name.to_s == "[]" && args.length == 1
-        @__weel_values[args[0]]
-      else
-        nil
-      end
-    end
-  end # }}}
 
   class ProcString #{{{
     attr_reader :code
@@ -753,16 +717,6 @@ class WEEL
       __weel_progress position, 0, true
       self.__weel_state = :stopping
     end #}}}
-
-    def status # {{{
-      @__weel_status
-    end # }}}
-    def data # {{{
-      ReadOnlyHash.new(@__weel_data)
-    end # }}}
-    def endpoints # {{{
-      ReadHash.new(@__weel_endpoints)
-    end # }}}
 
   private
     def __weel_protect_yield(*local) #{{{
