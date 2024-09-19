@@ -527,11 +527,11 @@ class WEEL
     end # }}}
 
     # Defines a branch of a parallel-Construct
-    def parallel_branch(*vars,&block)# {{{
+    def parallel_branch(data=@__weel_data,&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
-      branch_parent[:branches] << Thread.new(*vars) do |*local|
+      branch_parent[:branches] << Thread.new(data) do |*local|
         Thread.current.abort_on_exception = true
         Thread.current[:branch_search] = @__weel_search_positions.any?
         Thread.current[:branch_parent] = branch_parent
@@ -732,7 +732,7 @@ class WEEL
         nil
       rescue => err
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
         nil
       end
     end #}}}
@@ -744,11 +744,11 @@ class WEEL
       rescue NameError => err # don't look into it, or it will explode
         # if you access $! here, BOOOM
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue => err
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new(err.message),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
         nil
       end
     end #}}}
@@ -1089,13 +1089,13 @@ public
           end
         rescue SyntaxError => se
           @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(se.message),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,se,code)
         rescue NameError => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
         rescue => err
           @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new(err.message),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,err,code)
         end
         if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
           ipc = { :unmark => [] }
