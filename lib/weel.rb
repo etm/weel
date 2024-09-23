@@ -875,70 +875,72 @@ class WEEL
               @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
             end
           when :call
-            again = catch Signal::Again do # Will be nil if we do not throw (using default connectionwrapper)
-              connectionwrapper.mem_guard
-              params = connectionwrapper.prepare(@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,endpoint,parameters)
-
-              raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
-              raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
-
-              connectionwrapper.activity_handle wp.passthrough, params
-              wp.passthrough = connectionwrapper.activity_passthrough_value
-              unless wp.passthrough.nil?
-                @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
-              end
-              begin
-                # cleanup after callback updates
+            begin
+              again = catch Signal::Again do # Will be nil if we do not throw (using default connectionwrapper)
                 connectionwrapper.mem_guard
+                params = connectionwrapper.prepare(@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,endpoint,parameters)
 
-                # with loop if catching Signal::Again
-                # handshake call and wait until it finished
-                waitingresult = nil
-                waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+                raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
+                raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-                if Thread.current[:nolongernecessary]
-                  connectionwrapper.activity_no_longer_necessary
-                  raise Signal::NoLongerNecessary
+                connectionwrapper.activity_handle wp.passthrough, params
+                wp.passthrough = connectionwrapper.activity_passthrough_value
+                unless wp.passthrough.nil?
+                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
                 end
-                if self.__weel_state == :stopping || self.__weel_state == :finishing
-                  connectionwrapper.activity_stop
-                  wp.passthrough = connectionwrapper.activity_passthrough_value
-                  raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
-                end
+                begin
+                  # cleanup after callback updates
+                  connectionwrapper.mem_guard
 
-                next if waitingresult == WEEL::Signal::UpdateAgain && connectionwrapper.activity_result_value&.length == 0
+                  # with loop if catching Signal::Again
+                  # handshake call and wait until it finished
+                  waitingresult = nil
+                  waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
-                code, cmess = if waitingresult == WEEL::Signal::UpdateAgain
-                  [update, 'update']
-                elsif waitingresult == WEEL::Signal::Salvage
-                  [salvage, 'salvage'] || raise('HTTP Error. The service return status was not between 200 and 300.')
-                else
-                  [finalize, 'finalize']
-                end
-                if code.is_a?(String)
-                  connectionwrapper.inform_activity_manipulate
-                  struct = nil
-
-                  # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
-                  ma = catch Signal::Again do
-                    struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
-                    Signal::Proceed
+                  if Thread.current[:nolongernecessary]
+                    connectionwrapper.activity_no_longer_necessary
+                    raise Signal::NoLongerNecessary
                   end
-                  connectionwrapper.inform_manipulate_change(
-                    ((struct && struct.changed_status) ? @__weel_status : nil),
-                    ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
-                    ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
-                    @__weel_data,
-                    @__weel_endpoints
-                  )
-                  throw(Signal::Again, Signal::Again) if ma.nil? || ma == Signal::Again # this signal again loops "there is a catch" because rescue signal throw that throughly restarts the task
+                  if self.__weel_state == :stopping || self.__weel_state == :finishing
+                    connectionwrapper.activity_stop
+                    wp.passthrough = connectionwrapper.activity_passthrough_value
+                    raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
+                  end
+
+                  next if waitingresult == WEEL::Signal::UpdateAgain && connectionwrapper.activity_result_value&.length == 0
+
+                  code, cmess = if waitingresult == WEEL::Signal::UpdateAgain
+                    [update, 'update']
+                  elsif waitingresult == WEEL::Signal::Salvage
+                    [salvage, 'salvage'] || raise('HTTP Error. The service return status was not between 200 and 300.')
+                  else
+                    [finalize, 'finalize']
+                  end
+                  if code.is_a?(String)
+                    connectionwrapper.inform_activity_manipulate
+                    struct = nil
+
+                    # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
+                    ma = catch Signal::Again do
+                      struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                      Signal::Proceed
+                    end
+                    connectionwrapper.inform_manipulate_change(
+                      ((struct && struct.changed_status) ? @__weel_status : nil),
+                      ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
+                      ((struct && struct.changed_endpoints.any?) ? struct.changed_endpoints.uniq : nil),
+                      @__weel_data,
+                      @__weel_endpoints
+                    )
+                    throw(Signal::Again, Signal::Again) if ma.nil? || ma == Signal::Again # this signal again loops "there is a catch" because rescue signal throw that throughly restarts the task
+                  end
+                end while waitingresult == Signal::UpdateAgain # this signal again loops because async update, proposal: rename to UpdateAgain
+                if connectionwrapper.activity_passthrough_value.nil?
+                  connectionwrapper.inform_activity_done
+                  wp.passthrough = nil
+                  wp.detail = :after
+                  @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
                 end
-              end while waitingresult == Signal::UpdateAgain # this signal again loops because async update, proposal: rename to UpdateAgain
-              if connectionwrapper.activity_passthrough_value.nil?
-                connectionwrapper.inform_activity_done
-                wp.passthrough = nil
-                wp.detail = :after
-                @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
               end
             end while again == Signal::Again # there is a catch
         end
