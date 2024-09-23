@@ -829,7 +829,7 @@ class WEEL
               @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
             end
           when :call
-            again = catch Signal::Again do
+            again = catch Signal::Again do # Will be nil if we do not throw (using default connectionwrapper)
               connectionwrapper.mem_guard
               params = connectionwrapper.prepare(@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,prepare,endpoint,parameters)
 
@@ -894,7 +894,7 @@ class WEEL
                 wp.detail = :after
                 @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :after => [wp]
               end
-            end # there is a catch
+            end while again == Signal::Again # there is a catch
         end
         raise Signal::Proceed
       rescue Signal::SkipManipulate, Signal::Proceed
