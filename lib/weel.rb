@@ -1064,7 +1064,7 @@ class WEEL
     def __weel_state=(newState)# {{{
       return @__weel_state if newState == @__weel_state && @__weel_state != :ready
 
-      @__weel_positions = Array.new if newState == :running
+      @__weel_positions = Array.new if newState == :running || @dslr.__weel_state == :simulating
       @__weel_state = newState
 
       if newState == :stopping || newState == :finishing
@@ -1145,7 +1145,7 @@ public
           @dslr.__weel_state = :stopping
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,err,code)
         end
-        if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing
+        if @dslr.__weel_state == :running || @dslr.__weel_state == :finishing || @dslr.__weel_state == :simulating
           ipc = { :unmark => [] }
           @dslr.__weel_positions.each{ |wp| ipc[:unmark] << wp }
           @dslr.__weel_positions.clear
@@ -1204,7 +1204,7 @@ public
   # Stop the workflow execution
   def stop # {{{
     Thread.new do
-      if  @dslr.__weel_state == :running
+      if  @dslr.__weel_state == :running || @dslr.__weel_state == :simulating
         @dslr.__weel_state = :stopping
         @dslr.__weel_main.join if @dslr.__weel_main
       elsif @dslr.__weel_state == :ready || @dslr.__weel_state == :stopped
@@ -1226,12 +1226,18 @@ public
       end
     end
   end # }}}
-
+  # Sim the workflow execution
   def sim # {{{
-    stat = @dslr.__weel_state
-    return nil unless stat == :ready || stat == :stopped
+    return nil if @dslr.__weel_state != :ready && @dslr.__weel_state != :stopped
     @dslr.__weel_main = Thread.new do
-      __weel_control_flow :simulating, stat
+      Thread.current[:branch_search] = true if @dslr.__weel_search_positions.any?
+      begin
+        __weel_control_flow(:simulating, stat)
+      rescue => e
+        puts e.message
+        puts e.backtrace
+        connectionwrapper::inform_connectionwrapper_error connectionwrapper_args, e
+      end
     end
   end # }}}
 
