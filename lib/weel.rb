@@ -355,9 +355,8 @@ class WEEL
     def activity_passthrough_value; end
     def activity_uuid; '42424242-cpee-cpee-cpee-424242424242'; end
 
-    def activity_no_longer_necessary; end
-
     def inform_activity_done; end
+    def inform_activity_cancelled; end
     def inform_activity_manipulate; end
     def inform_activity_failed(err); end
     def inform_manipulate_change(status,changed_data,changed_endpoints,data,endpoints); end
@@ -898,7 +897,6 @@ class WEEL
                   waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
                   if Thread.current[:nolongernecessary]
-                    connectionwrapper.activity_no_longer_necessary
                     raise Signal::NoLongerNecessary
                   end
                   if self.__weel_state == :stopping || self.__weel_state == :finishing
@@ -957,6 +955,7 @@ class WEEL
           wp.detail = :unmark
         end
       rescue Signal::NoLongerNecessary
+        connectionwrapper.inform_activity_cancelled
         connectionwrapper.inform_activity_done
         @__weel_positions.delete wp
         Thread.current[:branch_position] = nil
