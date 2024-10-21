@@ -533,7 +533,7 @@ class WEEL
       end
 
       cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-      cw.split_branches(Thread.current[:branch_traces])
+      cw.split_branches(Thread.current.__id__, Thread.current[:branch_traces])
 
       Thread.current[:branches].each do |thread|
         # decide after executing block in parallel cause for coopis
@@ -546,7 +546,7 @@ class WEEL
 
       Thread.current[:branch_event].wait unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:branches].length == 0
 
-      cw.join_branches(Thread.current[:branch_traces])
+      cw.join_branches(Thread.current.__id__, Thread.current[:branch_traces])
 
       unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
         # first set all to no_longer_neccessary, just in case, but this should not be necessary
@@ -634,9 +634,11 @@ class WEEL
       Thread.current[:alternative_mode] << mode
 
       cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-      cw.split_branches(Thread.current[:branch_traces])
 
+      cw.split_branches(Thread.current.__id__,[])
       __weel_protect_yield(&block)
+      cw.join_branches(Thread.current.__id__,[])
+
       Thread.current[:alternative_executed].pop
       Thread.current[:alternative_mode].pop
       nil
