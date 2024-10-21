@@ -379,8 +379,8 @@ class WEEL
       end
     end
 
-    def join_branches(id,branches); end
-    def split_branches(id,branches); end
+    def join_branches(id,branches=[]); end
+    def split_branches(id,branches=[]); end
   end  # }}}
 
   class Position # {{{
