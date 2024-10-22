@@ -755,16 +755,6 @@ class WEEL
       self.__weel_state = :stopping
     end #}}}
 
-    def status # {{{
-      @__weel_status
-    end # }}}
-    def data # {{{
-      ReadOnlyHash.new(@__weel_data)
-    end # }}}
-    def endpoints # {{{
-      ReadHash.new(@__weel_endpoints)
-    end # }}}
-
   private
     def __weel_protect_yield(*local) #{{{
       begin
