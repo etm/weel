@@ -897,7 +897,7 @@ class WEEL
                     raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
                   end
 
-                  next if waitingresult == WEEL::Signal::UpdateAgain && connectionwrapper.activity_result_value&.length == 0
+                  next if waitingresult == WEEL::Signal::UpdateAgain && (connectionwrapper.activity_result_value.nil? || connectionwrapper.activity_result_value&.length == 0)
 
                   code, cmess = if waitingresult == WEEL::Signal::UpdateAgain
                     [update, 'update']
