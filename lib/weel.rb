@@ -761,7 +761,7 @@ class WEEL
         yield
       rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("`#{err.name}` problem. Maybe eval service not started?"),nil)
         nil
       rescue WEEL::Signal::Error => err
         self.__weel_state = :stopping
@@ -1134,7 +1134,7 @@ public
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,se,code)
         rescue NameError => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Your DSL konverter br0ken, or you inserted a thing manually?"),code)
         rescue => err
           @dslr.__weel_state = :stopping
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,err,code)
