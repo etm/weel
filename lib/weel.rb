@@ -523,7 +523,7 @@ class WEEL
       Thread.current[:branch_event] = Continue.new
       Thread.current[:mutex] = Mutex.new
 
-      __weel_yield(&block)
+      __weel_protect_yield(&block)
 
       Thread.current[:branch_wait_count] = (type.is_a?(Hash) && type[:wait] != nil && (type[:wait].is_a?(Integer) && type[:wait] > 0) ? type[:wait] : Thread.current[:branches].size)
       Thread.current[:branch_wait_count_cancel] = 0
@@ -588,7 +588,7 @@ class WEEL
         Thread.current[:start_event].wait unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
 
         unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-          __weel_yield(*local, &block)
+          __weel_protect_yield(*local, &block)
         end
 
         branch_parent[:mutex].synchronize do
@@ -636,7 +636,7 @@ class WEEL
       cw = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
 
       cw.split_branches Thread.current.__id__
-      __weel_yield(&block)
+      __weel_protect_yield(&block)
       cw.join_branches Thread.current.__id__
 
       Thread.current[:alternative_executed].pop
@@ -658,12 +658,12 @@ class WEEL
         Thread.current[:alternative_executed][-1] = true if condition
       end
       searchmode = __weel_is_in_search_mode
-      __weel_yield(&block) if searchmode || condition
+      __weel_protect_yield(&block) if searchmode || condition
       Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
     end # }}}
     def otherwise(args={},&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-      __weel_yield(&block) if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
+      __weel_protect_yield(&block) if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
     end # }}}
 
     # Defines a critical block (=Mutex)
@@ -677,7 +677,7 @@ class WEEL
         @__weel_critical_sections[id] = semaphore if id
       end
       semaphore.synchronize do
-        __weel_yield(&block)
+        __weel_protect_yield(&block)
       end
     end # }}}
 
@@ -689,7 +689,7 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       if __weel_is_in_search_mode
         catch :escape do
-          __weel_yield(&block)
+          __weel_protect_yield(&block)
         end
         if __weel_is_in_search_mode
           return
@@ -706,13 +706,13 @@ class WEEL
           when :pre_test
             while __weel_eval_condition(condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
               loop_guard += 1
-              __weel_yield(&block)
+              __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
             end
           when :post_test
             begin
               loop_guard += 1
-              __weel_yield(&block)
+              __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
             end while __weel_eval_condition(condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
         end
@@ -756,12 +756,12 @@ class WEEL
     end #}}}
 
   private
-    def __weel_protect
+    def __weel_protect_yield(*local) #{{{
       begin
-        yield
+        yield(*local) if block_given?
       rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("`#{err.name}` problem. Maybe eval service not started?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue WEEL::Signal::Error => err
         self.__weel_state = :stopping
@@ -772,18 +772,24 @@ class WEEL
         @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
         nil
       end
-    end
-
-    def __weel_yield(*local) #{{{
-      __weel_protect do
-        yield(*local) if block_given?
-      end
     end #}}}
 
     def __weel_eval_condition(condition,args={}) #{{{
-      __weel_protect do
+      begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
         connectionwrapper.test_condition(@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args)
+      rescue NameError => err # don't look into it, or it will explode
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        nil
+      rescue WEEL::Signal::Error => err
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
+        nil
+      rescue => err
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,err,nil)
+        nil
       end
     end #}}}
 
@@ -944,6 +950,7 @@ class WEEL
           wp.detail = :unmark
         end
       rescue Signal::NoLongerNecessary
+        connectionwrapper.activity_stop
         connectionwrapper.inform_activity_cancelled
         connectionwrapper.inform_activity_done
         @__weel_positions.delete wp
@@ -1134,7 +1141,7 @@ public
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,se,code)
         rescue NameError => err # don't look into it, or it will explode
           @dslr.__weel_state = :stopping
-          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Your DSL konverter br0ken, or you inserted a thing manually?"),code)
+          @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,Exception.new("main: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),code)
         rescue => err
           @dslr.__weel_state = :stopping
           @dslr.__weel_connectionwrapper::inform_syntax_error(@dslr.__weel_connectionwrapper_args,err,code)
