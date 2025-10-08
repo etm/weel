@@ -241,19 +241,10 @@ class WEEL
     def initialize(id,message)
       @id      = id
       @message = message
-      @nudge   = Queue.new
     end
     def update(id,message)
       @id      = id
       @message = message
-    end
-    def nudge!
-      1.upto(@nudge.num_waiting) do
-        @nudge.push(nil)
-      end
-    end
-    def wait_until_nudged!
-      @nudge.pop
     end
     def to_json(*a)
       {
@@ -498,8 +489,8 @@ class WEEL
     # position: a unique identifier within the wf-description (may be used by the search to identify a starting point)
     # endpoint: (only with :call) ep of the service
     # parameters: (only with :call) service parameters
-    def call(position, endpoint, parameters: {}, finalize: nil, update: nil, prepare: nil, salvage: nil, &finalizeblk) #{{{
-      __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update,prepare,salvage)
+    def call(position, endpoint, parameters: {}, signal: false, finalize: nil, update: nil, prepare: nil, salvage: nil, &finalizeblk) #{{{
+      __weel_activity(position,:call,endpoint,parameters,finalize||finalizeblk,update,prepare,salvage,signal)
     end #}}}
     # when two params, second param always script
     # when block and two params, parameters stays
@@ -521,6 +512,7 @@ class WEEL
       Thread.current[:branch_traces_ids] = 0
       Thread.current[:branch_finished_count] = 0
       Thread.current[:branch_event] = Continue.new
+      Thread.current[:nudge] = Queue.new
       Thread.current[:mutex] = Mutex.new
 
       __weel_protect_yield(&block)
@@ -562,7 +554,7 @@ class WEEL
     end # }}}
 
     # Defines a branch of a parallel-Construct
-    def parallel_branch(data=@__weel_data,&block)# {{{
+    def parallel_branch(data=@__weel_data,&block)# {{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
@@ -599,6 +591,9 @@ class WEEL
               branch_parent[:branches].each do |thread|
                 if thread.alive? && thread[:branch_wait_count_cancel_active] == false
                   thread[:nolongernecessary] = true
+                  1.upto(branch_parent[:nudge].num_waiting) do
+                    branch_parent[:nudge].push(nil)
+                  end
                   __weel_recursive_continue(thread)
                 end
               end
@@ -665,6 +660,40 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       __weel_protect_yield(&block) if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
     end # }}}
+
+    def wait_for_signal(position,label) #{{{
+      position = __weel_position_test position
+      searchmode = __weel_is_in_search_mode(position)
+
+      return if searchmode
+      return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+
+      # gather traces in threads to point to join
+      if Thread.current[:branch_parent] && Thread.current[:branch_traces_id]
+        Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] ||= []
+        Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
+      end
+
+      uuid = SecureRandom.uuid
+      wp = __weel_progress position, SecureRandom.uuid
+
+      @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args,'calling',uuid,label,position
+
+      Thread.current[:branch_parent][:nudge].pop
+
+      if self.__weel_state != :stopping
+        if Thread.current[:nolongernecessary]
+          @__weel_connectionwrapper::inform_activity_minimal('done', uuid, label, position)
+          Thread.current[:branch_position] = nil
+          @__weel_positions.delete wp
+          @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :unmark => [wp]
+        else
+          @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
+        end
+      end
+
+      __weel_activity_ensure
+    end #}}}
 
     # Defines a critical block (=Mutex)
     def critical(id,&block)# {{{
@@ -830,7 +859,7 @@ class WEEL
       wp
     end #}}}
 
-    def __weel_activity(position, type, endpoint, parameters, finalize=nil, update=nil, prepare=nil, salvage=nil)# {{{
+    def __weel_activity(position, type, endpoint, parameters, finalize=nil, update=nil, prepare=nil, salvage=nil, signal=false)# {{{
       position = __weel_position_test position
       searchmode = __weel_is_in_search_mode(position)
       return if searchmode == true
@@ -857,6 +886,11 @@ class WEEL
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
               struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
+              if signal
+                1.upto(Thread.current[:branch_parent][:nudge].num_waiting) do
+                  Thread.current[:branch_parent][:nudge].push(nil)
+                end
+              end
               connectionwrapper.inform_manipulate_change(
                 ((struct && struct.changed_status) ? @__weel_status : nil),
                 ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
@@ -922,6 +956,11 @@ class WEEL
                       struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
                       Signal::Proceed
                     end
+                    if signal
+                      1.upto(Thread.current[:branch_parent][:nudge].num_waiting) do
+                        Thread.current[:branch_parent][:nudge].push(nil)
+                      end
+                    end
                     connectionwrapper.inform_manipulate_change(
                       ((struct && struct.changed_status) ? @__weel_status : nil),
                       ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
@@ -930,8 +969,6 @@ class WEEL
                       @__weel_endpoints
                     )
                     throw(Signal::Again, Signal::Again) if ma.nil? || ma == Signal::Again # this signal again loops "there is a catch" because rescue signal throw that throughly restarts the task
-                  else
-
                   end
                 end while waitingresult == Signal::UpdateAgain # this signal again loops because async update, proposal: rename to UpdateAgain
                 if connectionwrapper.activity_passthrough_value.nil?
@@ -969,27 +1006,31 @@ class WEEL
         @__weel_connectionwrapper::inform_connectionwrapper_error @__weel_connectionwrapper_args, err
         self.__weel_state = :stopping
       ensure
-        connectionwrapper.mem_guard unless connectionwrapper.nil?
-        if Thread.current[:branch_parent]
-          Thread.current[:branch_parent][:mutex].synchronize do
-            if Thread.current[:branch_parent][:branch_wait_count_cancel_condition] == :first
-              if !Thread.current[:branch_wait_count_cancel_active] && Thread.current[:branch_parent][:branch_wait_count_cancel] <  Thread.current[:branch_parent][:branch_wait_count]
-                Thread.current[:branch_wait_count_cancel_active] = true
-                Thread.current[:branch_parent][:branch_wait_count_cancel] += 1
-              end
-              if Thread.current[:branch_parent][:branch_wait_count_cancel] == Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
-                Thread.current[:branch_parent][:branches].each do |thread|
-                  if thread.alive? && thread[:branch_wait_count_cancel_active] == false
-                    thread[:nolongernecessary] = true
-                    __weel_recursive_continue(thread)
-                  end
+        __weel_activity_ensure connectionwrapper
+      end
+    end # }}}
+
+    def __weel_activity_ensure(connectionwrapper=nil) #{{{
+      connectionwrapper.mem_guard unless connectionwrapper.nil?
+      if Thread.current[:branch_parent]
+        Thread.current[:branch_parent][:mutex].synchronize do
+          if Thread.current[:branch_parent][:branch_wait_count_cancel_condition] == :first
+            if !Thread.current[:branch_wait_count_cancel_active] && Thread.current[:branch_parent][:branch_wait_count_cancel] <  Thread.current[:branch_parent][:branch_wait_count]
+              Thread.current[:branch_wait_count_cancel_active] = true
+              Thread.current[:branch_parent][:branch_wait_count_cancel] += 1
+            end
+            if Thread.current[:branch_parent][:branch_wait_count_cancel] == Thread.current[:branch_parent][:branch_wait_count]  && self.__weel_state != :stopping && self.__weel_state != :finishing
+              Thread.current[:branch_parent][:branches].each do |thread|
+                if thread.alive? && thread[:branch_wait_count_cancel_active] == false
+                  thread[:nolongernecessary] = true
+                  __weel_recursive_continue(thread)
                 end
               end
             end
           end
         end
-        Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
       end
+      Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
     end # }}}
 
     def __weel_recursive_print(thread,indent='')# {{{
@@ -1001,6 +1042,11 @@ class WEEL
     end  # }}}
     def __weel_recursive_continue(thread)# {{{
       return unless thread
+      if thread[:nudge]
+        1.upto(thread[:nudge].num_waiting) do
+          thread[:nudge].push(nil)
+        end
+      end
       if thread.alive? && thread[:continue]
         thread[:continue].continue
       end
@@ -1069,7 +1115,6 @@ class WEEL
       @__weel_state = newState
 
       if newState == :stopping || newState == :finishing
-        @__weel_status.nudge!
         __weel_recursive_continue(@__weel_main)
       end
 
