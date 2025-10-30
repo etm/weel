@@ -189,7 +189,7 @@ class WEEL
       ManipulateHash.new(@__weel_endpoints,@touched_endpoints,@changed_endpoints)
     end
     def local
-      @__weel_local&.first
+      ManipulateHash.new(@__weel_local,[],[])
     end
     def status
       @__weel_status
