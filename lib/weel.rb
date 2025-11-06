@@ -680,10 +680,9 @@ class WEEL
       @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args,'calling',uuid,label,position
 
       Thread.current[:branch_parent][:nudge].pop
-
       if self.__weel_state != :stopping
         if Thread.current[:nolongernecessary]
-          @__weel_connectionwrapper::inform_activity_minimal('done', uuid, label, position)
+          @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
           Thread.current[:branch_position] = nil
           @__weel_positions.delete wp
           @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :unmark => [wp]
@@ -691,7 +690,6 @@ class WEEL
           @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
         end
       end
-
       __weel_activity_ensure
     end #}}}
 
