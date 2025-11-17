@@ -199,6 +199,11 @@ class WEEL
   class ManipulateHash # {{{
     attr_reader :__weel_touched, :__weel_changed
 
+    instance_methods.each do |meth|
+      # skipping undef of methods that "may cause serious problems"
+      undef_method(meth) if meth !~ /^(__|object_id)/
+    end
+
     def initialize(values,touched,changed)
       @__weel_values = values
       @__weel_touched = touched
@@ -282,6 +287,11 @@ class WEEL
     end
   end # }}}
   class ReadOnlyHash # {{{
+    instance_methods.each do |meth|
+      # skipping undef of methods that "may cause serious problems"
+      undef_method(meth) if meth !~ /^(__|object_id)/
+    end
+
     def initialize(values)
       @__weel_values = values.transform_values do |v|
         if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
