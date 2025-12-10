@@ -98,7 +98,7 @@ class WEEL
       ReadHash.new(@__weel_endpoints)
     end
     def local
-      @__weel_local&.first
+      ReadHash.new(@__weel_local)
     end
     attr_reader :additional
   end # }}}
