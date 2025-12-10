@@ -85,10 +85,10 @@ class WEEL
     end
     def update(d,e,s)
       d.each do |k,v|
-        data.send(k+'=',v)
+        data.__send(k+'=',v)
       end if d
       e.each do |k,v|
-        endpoints.send(k+'=',v)
+        endpoints.__send(k+'=',v)
       end if e
     end
     def data
@@ -147,10 +147,10 @@ class WEEL
 
     def update(d,e,s)
       d.each do |k,v|
-        data.send(k+'=',v)
+        data.__send(k+'=',v)
       end if d
       e.each do |k,v|
-        endpoints.send(k+'=',v)
+        endpoints.__send(k+'=',v)
       end if e
       if s
         status.update(s['id'],s['message'])
@@ -199,6 +199,7 @@ class WEEL
   class ManipulateHash # {{{
     attr_reader :__weel_touched, :__weel_changed
 
+    alias __send, send
     instance_methods.each do |meth|
       # skipping undef of methods that "may cause serious problems"
       undef_method(meth) if meth !~ /^(__|object_id)/
@@ -261,6 +262,12 @@ class WEEL
   end #}}}
 
   class ReadHash # {{{
+    alias __send, send
+    instance_methods.each do |meth|
+      # skipping undef of methods that "may cause serious problems"
+      undef_method(meth) if meth !~ /^(__|object_id)/
+    end
+
     def initialize(values)
       @__weel_values = values
     end
@@ -287,6 +294,7 @@ class WEEL
     end
   end # }}}
   class ReadOnlyHash # {{{
+    alias __send, send
     instance_methods.each do |meth|
       # skipping undef of methods that "may cause serious problems"
       undef_method(meth) if meth !~ /^(__|object_id)/
