@@ -581,7 +581,7 @@ class WEEL
         Thread.current[:branch_search] = @__weel_search_positions.any?
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
-        Thread.current[:local] = local
+        Thread.current[:local] = Marshal.load(Marshal.dump(local))
         Thread.current[:branch_wait_count_cancel_active] = false
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_traces_id] = branch_parent[:branch_traces_ids]
