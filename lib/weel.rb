@@ -199,7 +199,7 @@ class WEEL
   class ManipulateHash # {{{
     attr_reader :__weel_touched, :__weel_changed
 
-    alias __send, send
+    alias __send send
     instance_methods.each do |meth|
       # skipping undef of methods that "may cause serious problems"
       undef_method(meth) if meth !~ /^(__|object_id)/
@@ -262,7 +262,7 @@ class WEEL
   end #}}}
 
   class ReadHash # {{{
-    alias __send, send
+    alias __send send
     instance_methods.each do |meth|
       # skipping undef of methods that "may cause serious problems"
       undef_method(meth) if meth !~ /^(__|object_id)/
@@ -294,7 +294,7 @@ class WEEL
     end
   end # }}}
   class ReadOnlyHash # {{{
-    alias __send, send
+    alias __send send
     instance_methods.each do |meth|
       # skipping undef of methods that "may cause serious problems"
       undef_method(meth) if meth !~ /^(__|object_id)/
