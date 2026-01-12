@@ -105,7 +105,7 @@ class WEEL
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status,local,additional)
       @__weel_data = data
-      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) } rescue nil
+      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) rescue nil }
       @__weel_endpoints = endpoints
       @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
       @__weel_status = status
