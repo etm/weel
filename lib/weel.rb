@@ -357,9 +357,6 @@ class WEEL
     def activity_handle(passthrough, parameters); end
     def activity_manipulate_handle(parameters); end
 
-    def activity_result_value; end
-    def activity_result_options; end
-
     def activity_stop; end
     def activity_passthrough_value; end
     def activity_uuid; '42424242-cpee-cpee-cpee-424242424242'; end
@@ -938,8 +935,8 @@ class WEEL
 
                   # with loop if catching Signal::Again
                   # handshake call and wait until it finished
-                  waitingresult = nil
-                  waitingresult = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
+                  waitingresult = activity_result_value = activity_result_options = nil
+                  waitingresult, activity_result_value, activity_result_options = Thread.current[:continue].wait unless Thread.current[:nolongernecessary] || self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped
 
                   if Thread.current[:nolongernecessary]
                     raise Signal::NoLongerNecessary
@@ -950,7 +947,7 @@ class WEEL
                     raise Signal::Proceed if wp.passthrough # if stop, but no passthrough, let manipulate happen and then stop
                   end
 
-                  next if waitingresult == WEEL::Signal::UpdateAgain && (connectionwrapper.activity_result_value.nil? || connectionwrapper.activity_result_value&.length == 0)
+                  next if waitingresult == WEEL::Signal::UpdateAgain && (activity_result_value.nil? || activity_result_value&.length == 0)
 
                   code, cmess = if waitingresult == WEEL::Signal::UpdateAgain
                     [update, 'update']
@@ -969,7 +966,7 @@ class WEEL
 
                     # when you throw without parameters, ma contains nil, so we return Signal::Proceed to give ma a meaningful value in other cases
                     ma = catch Signal::Again do
-                      struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,connectionwrapper.activity_result_value,connectionwrapper.activity_result_options)
+                      struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,activity_result_value,activity_result_options)
                       Signal::Proceed
                     end
                     if signal
