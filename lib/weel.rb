@@ -1064,9 +1064,10 @@ class WEEL
         thread[:continue].continue
       end
       if thread.alive? && thread[:branch_event]
-        thread[:mutex].synchronize do
+        ### we dont mutex here anymore, although we did; we are not sure why we originally did it. Branch_event will always exist.
+        ### thread[:mutex].synchronize do
           thread[:branch_event].continue unless thread[:branch_event].nil?
-        end
+        ### end
       end
       if thread[:branches]
         thread[:branches].each do |b|
