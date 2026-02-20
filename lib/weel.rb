@@ -519,7 +519,7 @@ class WEEL
     # Parallel DSL-Construct
     # Defines Workflow paths that can be executed parallel.
     # May contain multiple branches (parallel_branch)
-    def parallel(sid,type=nil,&block)# {{{
+    def parallel(eid,type=nil,&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
       Thread.current[:branches] = []
@@ -569,7 +569,7 @@ class WEEL
     end # }}}
 
     # Defines a branch of a parallel-Construct
-    def parallel_branch(sid,data=@__weel_data,&block) #{{{
+    def parallel_branch(eid,data=@__weel_data,&block) #{{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
@@ -636,7 +636,7 @@ class WEEL
     # Choose DSL-Construct
     # Defines a choice in the Workflow path.
     # May contain multiple execution alternatives
-    def choose(sid,mode=:inclusive,&block) # {{{
+    def choose(eid,mode=:inclusive,&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       Thread.current[:alternative_executed] ||= []
       Thread.current[:alternative_mode] ||= []
@@ -657,7 +657,7 @@ class WEEL
     # Defines a possible choice of a choose-Construct
     # Block is executed if condition == true or
     # searchmode is active (to find the starting position)
-    def alternative(sid,condition,args={},&block)# {{{
+    def alternative(eid,condition,args={},&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       Thread.current[:mutex] ||= Mutex.new
       Thread.current[:mutex].synchronize do
@@ -671,7 +671,7 @@ class WEEL
       __weel_protect_yield(&block) if searchmode || condition
       Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
     end # }}}
-    def otherwise(sid,args={},&block) # {{{
+    def otherwise(eid,args={},&block) # {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       __weel_protect_yield(&block) if __weel_is_in_search_mode || !Thread.current[:alternative_executed].last
     end # }}}
@@ -709,7 +709,7 @@ class WEEL
     end #}}}
 
     # Defines a critical block (=Mutex)
-    def critical(sid,id,&block)# {{{
+    def critical(eid,id,&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       @__weel_critical ||= Mutex.new
       semaphore = nil
@@ -724,7 +724,7 @@ class WEEL
     end # }}}
 
     # Defines a Cycle (loop/iteration)
-    def loop(sid,condition,args={},&block)# {{{
+    def loop(eid,condition,args={},&block)# {{{
       unless condition[0].is_a?(String) && [:pre_test,:post_test].include?(condition[1]) && args.is_a?(Hash)
         raise "condition must be called pre_test{} or post_test{}"
       end
@@ -771,12 +771,12 @@ class WEEL
       [code || blk, :post_test]
     end # }}}
 
-    def escape(sid) #{{{
+    def escape(eid) #{{{
       return if __weel_is_in_search_mode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       throw :escape
     end #}}}
-    def terminate(sid) #{{{
+    def terminate(eid) #{{{
       return if __weel_is_in_search_mode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       self.__weel_state = :finishing
