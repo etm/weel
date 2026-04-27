@@ -490,11 +490,12 @@ class WEEL
       @__weel_connectionwrapper_args = []
       @__weel_state = :ready
       @__weel_status = Status.new(0,"undefined")
-      @__weel_sim = false
+      @__weel_abandon = false
       @__weel_lock = Mutex.new
     end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
     attr_reader :__weel_state, :__weel_status, :__weel_status
+    def __weel_abandon? = @__weel_abandon
 
     # DSL-Construct for translating expressions into static parameters
     def 🠊(code); ProcString.new(code); end
@@ -776,9 +777,10 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       throw :escape
     end #}}}
-    def terminate(eid) #{{{
+    def terminate(eid,abandon=false) #{{{
       return if __weel_is_in_search_mode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
+      @__weel_abandon = abandon
       self.__weel_state = :finishing
     end #}}}
     def stop(position) #{{{
@@ -1167,7 +1169,7 @@ public
     nil
   end #  }}}
 
-  # Get the state of execution (ready|running|stopping|stopped|finished|simulating|abandoned)
+  # Get the state of execution (ready|running|stopping|stopped|finished|abandoned)
   def state # {{{
     @dslr.__weel_state
   end #  }}}
@@ -1211,9 +1213,7 @@ public
           @dslr.__weel_positions.clear
           @dslr.__weel_connectionwrapper::inform_position_change(@dslr.__weel_connectionwrapper_args,ipc)
           @dslr.__weel_state = :finished
-        end
-        if @dslr.__weel_state == :simulating
-          @dslr.__weel_state = final_state
+          @dslr.__weel_state = :abandoned if @dslr.__weel_abandon?
         end
         if @dslr.__weel_state == :stopping
           @dslr.__weel_finalize
@@ -1286,13 +1286,4 @@ public
       end
     end
   end # }}}
-
-  def sim # {{{
-    stat = @dslr.__weel_state
-    return nil unless stat == :ready || stat == :stopped
-    @dslr.__weel_main = Thread.new do
-      __weel_control_flow :simulating, stat
-    end
-  end # }}}
-
 end
