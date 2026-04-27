@@ -1130,11 +1130,11 @@ class WEEL
       @__weel_positions = Array.new if newState == :running
       @__weel_state = newState
 
+      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
+
       if newState == :stopping || newState == :finishing
         __weel_recursive_continue(@__weel_main)
       end
-
-      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
     end # }}}
 
   end # }}}
