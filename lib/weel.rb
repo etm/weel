@@ -574,7 +574,7 @@ class WEEL
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       branch_parent = Thread.current
 
-      branch_parent[:branches] << Thread.new(data) do |*local|
+      branch_parent[:branches] << Thread.new(data) do |local|
         Thread.current.abort_on_exception = true
         Thread.current[:branch_search] = @__weel_search_positions.any?
         Thread.current[:branch_parent] = branch_parent
@@ -596,7 +596,7 @@ class WEEL
         Thread.current[:start_event].wait unless self.__weel_state == :stopping || self.__weel_state == :stopped || self.__weel_state == :finishing
 
         unless self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
-          __weel_protect_yield(*local, &block)
+          __weel_protect_yield(ReadHash.new(local),&block)
         end
 
         branch_parent[:mutex].synchronize do
