@@ -19,4 +19,6 @@ Gem::Specification.new do |s|
   s.homepage         = 'http://cpee.org/'
 
   s.add_runtime_dependency 'test-unit',  '~> 3.0'
+  s.add_runtime_dependency 'msgpack',  '~> 1'
+  s.add_runtime_dependency 'activesupport', '~> 8'
 end

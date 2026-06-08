@@ -16,6 +16,8 @@
 
 require 'thread'
 require 'securerandom'
+require 'active_support/core_ext/object/deep_dup'
+require 'msgpack'
 
 class WEEL
   def initialize(*args)# {{{
@@ -50,7 +52,7 @@ class WEEL
           v.root.to_doc
         else
           begin
-            Marshal.load(Marshal.dump(v))
+            v.deep_dup
           rescue
             v.to_s rescue nil
           end
@@ -72,7 +74,7 @@ class WEEL
     def method_missing(m,*args,&block)
       if @additional.include?(m)
         begin
-          tmp = Marshal.load(Marshal.dump(@additional[m]))
+          tmp = @additional[m].deep_dup
           if tmp.is_a? Hash
             ReadHash.new(tmp)
           else
@@ -105,9 +107,9 @@ class WEEL
   class ManipulateStructure # {{{
     def initialize(data,endpoints,status,local,additional)
       @__weel_data = data
-      @__weel_data_orig = @__weel_data.transform_values{|val| Marshal.dump(val) rescue nil }
+      @__weel_data_orig = @__weel_data.transform_values{|val|  MessagePack.pack(val) rescue nil }
       @__weel_endpoints = endpoints
-      @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val| Marshal.dump(val) }
+      @__weel_endpoints_orig = @__weel_endpoints.transform_values{|val|  MessagePack.pack(val) }
       @__weel_status = status
       @__weel_local = local
       @changed_status = "#{status.id}-#{status.message}"
@@ -133,7 +135,7 @@ class WEEL
     def method_missing(m,*args,&block)
       if @additional.include?(m)
         begin
-          tmp = Marshal.load(Marshal.dump(@additional[m]))
+          tmp = @additional[m].deep_dup
           if tmp.is_a? Hash
             ReadHash.new(tmp)
           else
@@ -159,7 +161,7 @@ class WEEL
 
     def changed_data
       @touched_data.each do |e|
-        td = Marshal.dump(@__weel_data[e]) rescue nil
+        td =  MessagePack.pack(@__weel_data[e]) rescue nil
         if td != @__weel_data_orig[e]
           @changed_data << e
         end
@@ -171,11 +173,11 @@ class WEEL
     end
 
     def original_data
-      @__weel_data_orig.transform_values{|val| Marshal.load(val) rescue nil }
+      @__weel_data_orig.transform_values{|val| MessagePack.unpack(val) rescue nil }
     end
 
     def original_endpoints
-      @__weel_endpoints_orig.transform_values{|val| Marshal.load(val) rescue nil }
+      @__weel_endpoints_orig.transform_values{|val| MessagePack.unpack(val) rescue nil }
     end
 
     def changed_status
@@ -306,7 +308,7 @@ class WEEL
           v.root.to_doc
         else
           begin
-            Marshal.load(Marshal.dump(v))
+            v.deep_dup
           rescue
             v.to_s rescue nil
           end
@@ -579,7 +581,7 @@ class WEEL
         Thread.current[:branch_search] = @__weel_search_positions.any?
         Thread.current[:branch_parent] = branch_parent
         Thread.current[:start_event] = Continue.new
-        Thread.current[:local] = Marshal.load(Marshal.dump(local))
+        Thread.current[:local] = local.deep_dup
         Thread.current[:branch_wait_count_cancel_active] = false
         branch_parent[:mutex].synchronize do
           Thread.current[:branch_traces_id] = branch_parent[:branch_traces_ids]
