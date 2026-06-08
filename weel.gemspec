@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name             = "weel"
-  s.version          = "1.99.151"
+  s.version          = "1.99.152"
   s.platform         = Gem::Platform::RUBY
   s.license          = "LGPL-3.0-or-later"
   s.summary          = "Workflow Execution Engine Library (WEEL)"
