@@ -356,7 +356,7 @@ class WEEL
 
     def additional; {}; end
 
-    def activity_handle(passthrough, parameters); end
+    def activity_handle(passthrough, parameters, dataelements); end
     def activity_manipulate_handle(parameters); end
 
     def activity_stop; end
@@ -928,7 +928,7 @@ class WEEL
                 raise Signal::Stop unless connectionwrapper.vote_sync_before(params)
                 raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
-                connectionwrapper.activity_handle wp.passthrough, params
+                connectionwrapper.activity_handle wp.passthrough, params, @__weel_data
                 wp.passthrough = connectionwrapper.activity_passthrough_value
                 unless wp.passthrough.nil?
                   @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :wait => [wp]
