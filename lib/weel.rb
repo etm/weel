@@ -663,14 +663,16 @@ class WEEL
     def alternative(eid,condition,args={},&block)# {{{
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
       Thread.current[:mutex] ||= Mutex.new
-      Thread.current[:mutex].synchronize do
-        return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
-        if condition.is_a?(String)
-          condition = __weel_eval_condition(eid, condition, args)
-        end
-        Thread.current[:alternative_executed][-1] = true if condition
-      end
       searchmode = __weel_is_in_search_mode
+      unless searchmode
+        Thread.current[:mutex].synchronize do
+          return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
+          if condition.is_a?(String)
+            condition = __weel_eval_condition(eid, condition, args)
+          end
+          Thread.current[:alternative_executed][-1] = true if condition
+        end
+      end
       __weel_protect_yield(&block) if searchmode || condition
       Thread.current[:alternative_executed][-1] = true if __weel_is_in_search_mode != searchmode # we swiched from searchmode true to false, thus branch has been executed which is as good as evaling the condition to true
     end # }}}
