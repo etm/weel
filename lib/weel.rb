@@ -828,7 +828,7 @@ class WEEL
         connectionwrapper.test_condition(eid,@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args)
       rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
-        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("protect_yield: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
         nil
       rescue WEEL::Signal::Error => err
         self.__weel_state = :stopping
