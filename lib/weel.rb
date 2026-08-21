@@ -45,6 +45,43 @@ class WEEL
     class Salvage < Exception; end
   end # }}}
 
+  module HashExt #{{{
+    alias __send send
+    instance_methods.each do |meth|
+      # skipping undef of methods that "may cause serious problems"
+      undef_method(meth) if meth !~ /^(__|object_id)/
+    end
+
+    def any?
+      @__weel_values&.any?
+    end
+
+    def empty?
+      @__weel_values.nil? || @__weel_values.empty?
+    end
+
+    def to_json(*args)
+      @__weel_values.nil? ? '{}' : @__weel_values.to_json(*args)
+    end
+
+    def method_missing(name,*args)
+      if args.empty? && @__weel_values.key?(name)
+        @__weel_values[name]
+      elsif args.empty? && @__weel_values.key?(name.to_s)
+        @__weel_values[name.to_s]
+      elsif name.to_s[-1..-1] == "=" && args.length == 1
+        temp = name.to_s[0..-2]
+        @__weel_values[temp.to_sym] = args[0]
+      elsif name.to_s == "[]=" && args.length == 2
+        @__weel_values[args[0]] = args[1]
+      elsif name.to_s == "[]" && args.length == 1
+        @__weel_values[args[0]]
+      else
+        nil
+      end
+    end
+  end #}}}
+
   class ReadStructure # {{{
     def initialize(data,endpoints,local,additional)
       @__weel_data = data.transform_values do |v|
@@ -201,11 +238,7 @@ class WEEL
   class ManipulateHash # {{{
     attr_reader :__weel_touched, :__weel_changed
 
-    alias __send send
-    instance_methods.each do |meth|
-      # skipping undef of methods that "may cause serious problems"
-      undef_method(meth) if meth !~ /^(__|object_id)/
-    end
+    include WEEL::HashExt
 
     def initialize(values,touched,changed)
       @__weel_values = values
@@ -218,11 +251,6 @@ class WEEL
         @__weel_changed << value
         @__weel_values.delete(value)
       end
-    end
-
-    def clear
-      @__weel_changed += @__weel_values.keys
-      @__weel_values.clear
     end
 
     def method_missing(name,*args)
@@ -264,43 +292,14 @@ class WEEL
   end #}}}
 
   class ReadHash # {{{
-    alias __send send
-    instance_methods.each do |meth|
-      # skipping undef of methods that "may cause serious problems"
-      undef_method(meth) if meth !~ /^(__|object_id)/
-    end
+    include WEEL::HashExt
 
     def initialize(values)
       @__weel_values = values
     end
-
-    def to_json(*args)
-      @__weel_values.to_json(*args)
-    end
-
-    def method_missing(name,*args)
-      if args.empty? && @__weel_values.key?(name)
-        @__weel_values[name]
-      elsif args.empty? && @__weel_values.key?(name.to_s)
-        @__weel_values[name.to_s]
-      elsif name.to_s[-1..-1] == "=" && args.length == 1
-        temp = name.to_s[0..-2]
-        @__weel_values[temp.to_sym] = args[0]
-      elsif name.to_s == "[]=" && args.length == 2
-        @__weel_values[args[0]] = args[1]
-      elsif name.to_s == "[]" && args.length == 1
-        @__weel_values[args[0]]
-      else
-        nil
-      end
-    end
   end # }}}
   class ReadOnlyHash # {{{
-    alias __send send
-    instance_methods.each do |meth|
-      # skipping undef of methods that "may cause serious problems"
-      undef_method(meth) if meth !~ /^(__|object_id)/
-    end
+    include WEEL::HashExt
 
     def initialize(values)
       @__weel_values = values.transform_values do |v|
@@ -313,27 +312,6 @@ class WEEL
             v.to_s rescue nil
           end
         end
-      end
-    end
-
-    def to_json(*args)
-      @__weel_values.to_json(*args)
-    end
-
-    def method_missing(name,*args)
-      if args.empty? && @__weel_values.key?(name)
-        @__weel_values[name]
-      elsif args.empty? && @__weel_values.key?(name.to_s)
-        @__weel_values[name.to_s]
-      elsif name.to_s[-1..-1] == "=" && args.length == 1
-        temp = name.to_s[0..-2]
-        @__weel_values[temp.to_sym] = args[0]
-      elsif name.to_s == "[]=" && args.length == 2
-        @__weel_values[args[0]] = args[1]
-      elsif name.to_s == "[]" && args.length == 1
-        @__weel_values[args[0]]
-      else
-        nil
       end
     end
   end # }}}
