@@ -800,7 +800,7 @@ class WEEL
       end
     end #}}}
 
-    def __weel_eval_condition(eid,condition,args={}, props={}) #{{{
+    def __weel_eval_condition(eid,condition,args={},props={}) #{{{
       begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
         connectionwrapper.test_condition(eid,@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args,props)
