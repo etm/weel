@@ -354,7 +354,7 @@ class WEEL
     def mem_guard; end
 
     def prepare(lock,dataelements,endpoints,status,local,additional,code,exec_endpoints,exec_parameters); end
-    def test_condition(eid,dataelements,endpoints,local,additional,code,args={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
+    def test_condition(eid,dataelements,endpoints,local,additional,code,args={},props={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def manipulate(readonly,lock,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
       lock.synchronize do
         if readonly
@@ -646,7 +646,7 @@ class WEEL
         Thread.current[:mutex].synchronize do
           return if Thread.current[:alternative_mode][-1] == :exclusive && Thread.current[:alternative_executed][-1] == true
           if condition.is_a?(String)
-            condition = __weel_eval_condition(eid, condition, args)
+            condition = __weel_eval_condition(eid, condition, args, {:type => 'alternative', :count => nil})
           end
           Thread.current[:alternative_executed][-1] = true if condition
         end
@@ -729,7 +729,7 @@ class WEEL
       catch :escape do
         case condition[1]
           when :pre_test
-            while __weel_eval_condition(eid, condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
+            while __weel_eval_condition(eid, condition[0],args,{:type => 'loop', :variant => 'head', :count => loop_guard}) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
@@ -739,7 +739,7 @@ class WEEL
               loop_guard += 1
               __weel_protect_yield(&block)
               sleep 1 if @__weel_connectionwrapper::loop_guard(@__weel_connectionwrapper_args,loop_id,loop_guard)
-            end while __weel_eval_condition(eid, condition[0],args) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
+            end while __weel_eval_condition(eid, condition[0],args,{:type => 'loop', :variant => 'tail', :count => loop_guard}) && self.__weel_state != :stopping && self.__weel_state != :stopped && self.__weel_state != :finishing && !Thread.current[:nolongernecessary]
         end
       end
     end # }}}
@@ -800,10 +800,10 @@ class WEEL
       end
     end #}}}
 
-    def __weel_eval_condition(eid,condition,args={}) #{{{
+    def __weel_eval_condition(eid,condition,args={}, props={}) #{{{
       begin
         connectionwrapper = @__weel_connectionwrapper.new @__weel_connectionwrapper_args
-        connectionwrapper.test_condition(eid,@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args)
+        connectionwrapper.test_condition(eid,@__weel_data,@__weel_endpoints,Thread.current[:local],connectionwrapper.additional,condition,args,props)
       rescue NameError => err # don't look into it, or it will explode
         self.__weel_state = :stopping
         @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("eval_condition: `#{err.name}` is not a thing that can be used. Maybe it is meant to be a string and you forgot quotes?"),nil)
