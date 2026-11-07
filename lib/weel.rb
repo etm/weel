@@ -876,7 +876,7 @@ class WEEL
 
         case type
           when :manipulate
-            raise Signal::Stop unless connectionwrapper.vote_sync_before
+            raise Signal::Stop unless connectionwrapper.vote_sync_before(parameters)
             raise Signal::Skip if self.__weel_state == :stopping || self.__weel_state == :finishing
 
             if finalize.is_a?(String)
