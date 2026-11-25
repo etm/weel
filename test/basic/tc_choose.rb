@@ -6,14 +6,14 @@ class TestChoose < Test::Unit::TestCase
 
   def test_choose_alternative
     @wf.description do
-      choose do
-        alternative true do
+      choose :c1 do
+        alternative :c1_1, true do
           call :a_1, :endpoint1
         end
-        alternative false do
+        alternative :c1_2, false do
           call :a_2, :endpoint1
         end
-        otherwise do
+        otherwise :c1_3 do
           call :a_3, :endpoint1
         end
       end

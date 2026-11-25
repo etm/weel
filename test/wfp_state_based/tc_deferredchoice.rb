@@ -7,24 +7,20 @@ class TestWFPDeferredChoice < Test::Unit::TestCase
 
   def test_sequence
     @wf.description do
-      parallel :wait=>1 do
-        parallel_branch do
-          call :a1_1, :endpoint1, parameters: { :call => Proc.new{sleep 0.5} } do
-            data.choice = 1
-          end
+      parallel :p1, :wait=>1 do
+        parallel_branch :p1_1 do
+          call :a1_1, :endpoint1, parameters: { :call => Proc.new{sleep 0.5} }, finalize: 'data.choice = 1'
           Thread.pass
         end
-        parallel_branch do
-          call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 1.0} } do
-            data.choice = 2
-          end
+        parallel_branch :p1_2 do
+          call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 1.0} }, finalize: 'data.choice = 2'
         end
       end
-      choose do
-        alternative(data.choice == 1) do
+      choose :c1 do
+        alternative(:c1_1, 'data.choice == 1') do
           call :a2_1, :endpoint1
         end
-        alternative(data.choice == 2) do
+        alternative(:c1_2, 'data.choice == 2') do
           call :a2_2, :endpoint1
         end
       end
@@ -33,7 +29,7 @@ class TestWFPDeferredChoice < Test::Unit::TestCase
     wf_assert('CALL a1_1')
     wf_assert('DONE a1_1')
     wf_assert('MANIPULATE a1_1')
-    wf_sassert('NLNa1_2Ca2_1Da2_1|finished|')
+    wf_sassert('Sa1_2NLNa1_2Da1_2Ca2_1Da2_1|finished|')
     data = @wf.data
     assert(data[:choice] == 1, "data[:choice] has not the correct value [#{data[:x]}]")
   end

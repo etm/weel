@@ -477,7 +477,7 @@ class WEEL
       @__weel_lock = Mutex.new
     end #}}}
     attr_accessor :__weel_search_positions, :__weel_positions, :__weel_main, :__weel_data, :__weel_endpoints, :__weel_connectionwrapper, :__weel_connectionwrapper_args
-    attr_reader :__weel_state, :__weel_status, :__weel_status
+    attr_reader :__weel_state, :__weel_status
     def __weel_abandon? = @__weel_abandon
 
     # DSL-Construct for translating expressions into static parameters

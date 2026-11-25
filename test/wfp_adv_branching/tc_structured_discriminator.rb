@@ -7,12 +7,12 @@ class TestWFPStructuredDiscriminator < Test::Unit::TestCase
 
   def test_cancelling_discriminator
     @wf.description do
-      parallel :wait => 1 do
-        parallel_branch do
+      parallel :p1, :wait => 1 do
+        parallel_branch :p1_1 do
           sleep 0.5
           call :a_1_1, :endpoint1
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a_1_2, :endpoint1, parameters: { :call => Proc.new{sleep 8.2} }
         end
       end

@@ -7,13 +7,9 @@ class TestWFPInterleavedParallelRouting < Test::Unit::TestCase
 
   def test_loop
     @wf.description do
-      manipulate :a1 do
-        data.x = 0
-      end
-      loop pre_test{data.x < 3} do
-        call :a2, :endpoint1 do
-          data.x += 1
-        end
+      manipulate :a1, 'data.x = 0'
+      loop :l1, pre_test('data.x < 3') do
+        call :a2, :endpoint1, finalize: 'data.x += 1'
       end
       call :a3, :endpoint1
     end
@@ -24,18 +20,14 @@ class TestWFPInterleavedParallelRouting < Test::Unit::TestCase
   end
   def test_loop_search
     @wf.description do
-      manipulate :a1 do
-        data.x = 0
-      end
-      loop pre_test{data.x < 3} do
+      manipulate :a1, 'data.x = 0'
+      loop :l1, pre_test('data.x < 3') do
         call :a2_1, :endpoint1
-        manipulate :a2_2 do
-          data.x += 1
-        end
+        manipulate :a2_2, 'data.x += 1'
       end
       call :a3, :endpoint1
     end
-    @wf.search WEEL::Position.new(:a2_2, :at)
+    @wf.search WEEL::Position.new(:a2_2, 0, :at)
     @wf.data :x => 2
     @wf.start.join
     wf_sassert('|running|Ma2_2Da2_2Ca3Da3|finished|');
@@ -44,18 +36,14 @@ class TestWFPInterleavedParallelRouting < Test::Unit::TestCase
   end
   def test_loop_jump_over
     @wf.description do
-      manipulate :a1 do
-        data.x = 0
-      end
-      loop pre_test{data.x < 3} do
+      manipulate :a1, 'data.x = 0'
+      loop :l1, pre_test('data.x < 3') do
         call :a2_1, :endpoint1
-        manipulate :a2_2 do
-          data.x += 1
-        end
+        manipulate :a2_2, 'data.x += 1'
       end
       call :a3, :endpoint1
     end
-    @wf.search WEEL::Position.new(:a3, :at)
+    @wf.search WEEL::Position.new(:a3, 0, :at)
     @wf.data :x => 0
     @wf.start.join
     wf_sassert('|running|Ca3Da3|finished|');

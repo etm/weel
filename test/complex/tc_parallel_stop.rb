@@ -8,19 +8,19 @@ class TestParallelStop < Test::Unit::TestCase
     @wf.data[:hotels]  = []
     @wf.data[:costs]   = 0
     @wf.description do
-      parallel do
-        parallel_branch do
-          call :a1, :endpoint1 do
+      parallel :p1 do
+        parallel_branch :p1_1 do
+          call :a1, :endpoint1, finalize: <<-END
             data.hotels << 'Rathaus'
             data.costs += 200
-          end
+          END
           call :a3, :stop
         end
-        parallel_branch do
-          call :a2, :endpoint2 do
+        parallel_branch :p1_2 do
+          call :a2, :endpoint2, finalize: <<-END
             data.hotels << 'Graf Stadion'
             data.costs += 200
-          end
+          END
           call :a4, :stop
         end
       end

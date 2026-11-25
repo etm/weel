@@ -10,7 +10,7 @@ class TestCodeReplace < Test::Unit::TestCase
       call :a_test_1_2, :endpoint1
       call :a_test_1_3, :endpoint1
     end
-    @wf.search WEEL::Position.new(:a_test_1_1, :at)
+    @wf.search WEEL::Position.new(:a_test_1_1, 0, :at)
     @wf.start.join
     wf_assert("CALL a_test_1_1:")
     wf_assert("CALL a_test_1_2:")
@@ -19,7 +19,7 @@ class TestCodeReplace < Test::Unit::TestCase
   end
   def test_wfdescription_string
     @wf.description = "call :b_test_1_1, :endpoint1"
-    @wf.search WEEL::Position.new(:b_test_1_1, :at)
+    @wf.search WEEL::Position.new(:b_test_1_1, 0, :at)
     @wf.start.join
     wf_assert("DONE b_test_1_1")
     wf_sassert("|running|Cb_test_1_1Db_test_1_1|finished|")
@@ -31,7 +31,7 @@ class TestCodeReplace < Test::Unit::TestCase
     end
 
     assert(ret.class == Proc, "wf_description should be nil => not available. codeblock was given!")
-    @wf.search WEEL::Position.new(:c_test_1_2, :at)
+    @wf.search WEEL::Position.new(:c_test_1_2, 0, :at)
     @wf.start.join
     wf_sassert("|running|Cc_test_1_2Dc_test_1_2|finished|")
   end

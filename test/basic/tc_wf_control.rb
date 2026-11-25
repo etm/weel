@@ -24,7 +24,7 @@ class TestWorkflowControl < Test::Unit::TestCase
       call :a_test_1_2, :endpoint1, parameters: { :call => Proc.new{ sleep 0.5 }, :async => true }
       call :a_test_1_3, :endpoint1
     end
-    @wf.search WEEL::Position.new(:a_test_1_1, :at)
+    @wf.search WEEL::Position.new(:a_test_1_1, 0, :at)
     wf = @wf.start
     sleep(0.2)
     @wf.stop.join
@@ -45,7 +45,7 @@ class TestWorkflowControl < Test::Unit::TestCase
       call :a_test_1_2, :endpoint1, parameters: { :call => Proc.new{ sleep 0.5 } }
       call :a_test_1_3, :endpoint1
     end
-    @wf.search WEEL::Position.new(:a_test_1_1, :at)
+    @wf.search WEEL::Position.new(:a_test_1_1, 0, :at)
     wf = @wf.start
     sleep(0.2)
     @wf.stop.join

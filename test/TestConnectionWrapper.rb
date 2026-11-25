@@ -22,14 +22,14 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
     @t = nil
   end
 
-  def prepare(readonly, endpoints, parameters, replay=false)
-    @__myhandler_endpoint = readonly.endpoints[endpoints]
-    parameters
+  def prepare(lock,dataelements,endpoints,status,local,additional,code,exec_endpoints,exec_parameters)
+    @__myhandler_endpoint = endpoints[exec_endpoints]
+    exec_parameters
   end
 
   # executes a ws-call to the given endpoint with the given parameters. the call
-  # can be executed asynchron, see finished_call & return_value
-  def activity_handle(passthrough, parameters) #{{{
+  # can be executed asynchron, the result is handed to weel through continue
+  def activity_handle(passthrough, parameters, dataelements) #{{{
     $long_track << "CALL #{@__myhandler_position}: passthrough=[#{passthrough}], endpoint=[#{@__myhandler_endpoint}], parameters=[#{parameters.inspect}]\n"
     $short_track << "C#{@__myhandler_position}"
 
@@ -44,10 +44,10 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
       @__myhandler_returnValue = parameters.has_key?(:result) ? parameters[:result] : 'Handler_Dummy_Result'
       Thread.new do
         while parameters[:again].call
-          @__myhandler_continue.continue WEEL::Signal::Again
+          @__myhandler_continue.continue WEEL::Signal::UpdateAgain, @__myhandler_returnValue
           sleep 1
         end
-        @__myhandler_continue.continue
+        @__myhandler_continue.continue WEEL::Signal::Proceed, @__myhandler_returnValue
       end
       return
     end
@@ -55,18 +55,13 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
       @t = Thread.new do
         parameters[:call].call
         @__myhandler_returnValue = parameters.has_key?(:result) ? parameters[:result] : 'Handler_Dummy_Result'
-        @__myhandler_continue.continue
+        @__myhandler_continue.continue WEEL::Signal::Proceed, @__myhandler_returnValue
       end
       # give nothing back
     else
       @__myhandler_returnValue = parameters.has_key?(:result) ? parameters[:result] : 'Handler_Dummy_Result'
-      @__myhandler_continue.continue
+      @__myhandler_continue.continue WEEL::Signal::Proceed, @__myhandler_returnValue
     end
-  end #}}}
-
-  # returns the result of the last handled call
-  def activity_result_value #{{{
-    @__myhandler_returnValue
   end #}}}
   # Called if the WS-Call should be interrupted. The decision how to deal
   # with this situation is given to the handler. To provide the possibility
@@ -84,16 +79,13 @@ class TestConnectionWrapper < WEEL::ConnectionWrapperBase
     @__myhandler_passthrough
   end #}}}
 
-  # Called if the execution of the actual activity_handle is not necessary anymore
-  # It is definit that the call will not be continued.
+  # Called (after activity_stop) if the execution of the actual activity_handle
+  # is not necessary anymore. It is definit that the call will not be continued.
   # At this stage, this is only the case if parallel branches are not needed
   # anymore to continue the workflow
-  def activity_no_longer_necessary #{{{
+  def inform_activity_cancelled #{{{
     $long_track += "NO_LONGER_NECCESARY #{@__myhandler_position}\n"
     $short_track << "NLN#{@__myhandler_position}"
-    @t.exit if @t
-    @__myhandler_returnValue = "No longer necessary"
-    @__myhandler_stopped = true
   end #}}}
   # Is called if a Activity is executed correctly
   def inform_activity_manipulate #{{{

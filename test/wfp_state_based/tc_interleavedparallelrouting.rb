@@ -7,17 +7,17 @@ class TestWFPInterleavedParallelRouting < Test::Unit::TestCase
 
   def test_interleaved
     @wf.description do
-      parallel do
-        parallel_branch do
-          critical(:section1) do
+      parallel :p1 do
+        parallel_branch :p1_1 do
+          critical(:cr1, :section1) do
             call :a1, :endpoint1
           end
-          critical(:section1) do
+          critical(:cr2, :section1) do
             call :a3, :endpoint1
           end
         end
-        parallel_branch do
-          critical(:section1) do
+        parallel_branch :p1_2 do
+          critical(:cr3, :section1) do
             call :a2, :endpoint1
           end
         end

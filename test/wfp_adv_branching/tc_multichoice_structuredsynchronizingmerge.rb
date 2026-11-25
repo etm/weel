@@ -7,11 +7,11 @@ class TestWFPMultiChoice < Test::Unit::TestCase
   def test_multichoice_chained
     @wf.data :x => 1
     @wf.description do
-      choose do
-        alternative(data.x == 1) do
+      choose :c1 do
+        alternative(:c1_1, 'data.x == 1') do
           call :a1_1, :endpoint1
         end
-        alternative(data.x > 0) do
+        alternative(:c1_2, 'data.x > 0') do
           call :a1_2, :endpoint1
         end
       end
@@ -23,16 +23,16 @@ class TestWFPMultiChoice < Test::Unit::TestCase
   def test_multichoice_parallel
     @wf.data :x => 1
     @wf.description do
-      choose do
-        parallel do
-          parallel_branch do
-            alternative(data.x == 1) do
+      choose :c1 do
+        parallel :p1 do
+          parallel_branch :p1_1 do
+            alternative(:c1_1, 'data.x == 1') do
               call :a1_1, :endpoint1
               Thread.pass
             end
           end
-          parallel_branch do
-            alternative(data.x > 0) do
+          parallel_branch :p1_2 do
+            alternative(:c1_2, 'data.x > 0') do
               call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.5} }
             end
           end

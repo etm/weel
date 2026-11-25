@@ -6,20 +6,20 @@ class TestWFPLocalSynchronizingMerge < Test::Unit::TestCase
 
   def test_localsyncmerge
     @wf.description do
-      parallel do
-        parallel_branch do
+      parallel :p1 do
+        parallel_branch :p1_1 do
           call :a1_1, :endpoint1, parameters: { :call => Proc.new{sleep 0.2} }
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a1_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.4} }
         end
-        choose do
-          alternative(false) do
-            parallel_branch do
+        choose :c1 do
+          alternative(:c1_1, false) do
+            parallel_branch :p1_3 do
               call :a2_1, :endpoint1
-            end  
+            end
           end
-          otherwise do
+          otherwise :c1_2 do
             call :a2_2, :endpoint1, parameters: { :call => Proc.new{sleep 0.1} }
           end
         end

@@ -1,7 +1,7 @@
 module SimTestMixin #{{{
   def setup
     $long_track = ""
-    $short_track = ""
+    $short_track = String.new
     @wf = nil
   end
 
@@ -33,7 +33,7 @@ end  #}}}
 module TestMixin #{{{
   def setup
     $long_track = ""
-    $short_track = ""
+    $short_track = String.new
     @wf = TestWorkflow.new
   end
 

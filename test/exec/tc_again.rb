@@ -6,12 +6,10 @@ class TestAgain < Test::Unit::TestCase
 
   def test_again
     @wf.data[:a] = 0
+    $again_count = 0
     @wf.description do
-      call :a_1, :again, parameters: { :again => Proc.new{data.a < 2} }, update: -> do
-        data.a += 1
-      end, finalize: -> do
-        data.a += 1
-      end
+      # the handler asks :again before each answer: twice update, then finalize
+      call :a_1, :again, parameters: { :again => Proc.new{ ($again_count += 1) < 3 } }, update: 'data.a += 1', finalize: 'data.a += 1'
     end
     @wf.start.join
     wf_assert("CALL a_1")

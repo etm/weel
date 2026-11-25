@@ -6,11 +6,11 @@ class TestWFPExclusiveChoice < Test::Unit::TestCase
 
   def test_exclusive_choice
     @wf.description do
-      choose do
-        alternative(true) do
+      choose :c1, :exclusive do
+        alternative(:c1_1, true) do
           call :a1_1, :endpoint1
         end
-        otherwise do
+        otherwise :c1_2 do
           call :a1_2, :endpoint1
         end
       end

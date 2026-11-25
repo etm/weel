@@ -6,11 +6,11 @@ class TestWFPParallel < Test::Unit::TestCase
 
   def test_parallel_split
     @wf.description do
-      parallel :wait do
-        parallel_branch do
+      parallel :p1 do
+        parallel_branch :p1_1 do
           call :a1_1, :endpoint1
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a1_2, :endpoint1
         end
       end

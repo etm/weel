@@ -6,14 +6,14 @@ class TestParallel < Test::Unit::TestCase
 
   def test_parallel_simple
     @wf.description do
-      parallel do
-        parallel_branch do
+      parallel :p1 do
+        parallel_branch :p1_1 do
           call :a_1, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a_2, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
         end
-        parallel_branch do
+        parallel_branch :p1_3 do
           call :a_3, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
         end
       end
@@ -30,11 +30,11 @@ class TestParallel < Test::Unit::TestCase
   end
   def test_parallel_wait
     @wf.description do
-      parallel :wait do
-        parallel_branch do
+      parallel :p1 do
+        parallel_branch :p1_1 do
           call :a_1, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.2 } }
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a_2, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
         end
       end
@@ -48,12 +48,12 @@ class TestParallel < Test::Unit::TestCase
   end
   def test_parallel_nowait
     @wf.description do
-      parallel :wait => 1 do
-        parallel_branch do
+      parallel :p1, :wait => 1 do
+        parallel_branch :p1_1 do
           sleep 0.5
           call :a_1, :endpoint1
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a_2, :endpoint1, parameters: { :call =>  Proc.new{ sleep 8.5 } }
         end
       end
@@ -62,15 +62,15 @@ class TestParallel < Test::Unit::TestCase
     @wf.start.join
     wf_assert('CALL a_1')
     wf_assert('CALL a_2')
-    wf_sassert('NLNa_2Ca_3Da_3|finished|')
+    wf_sassert('Sa_2NLNa_2Da_2Ca_3Da_3|finished|')
   end
   def test_parallel_no_longer_necessary
     @wf.description do
-      parallel :wait => 1 do
-        parallel_branch do
+      parallel :p1, :wait => 1 do
+        parallel_branch :p1_1 do
           call :a_1, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.2 } }
         end
-        parallel_branch do
+        parallel_branch :p1_2 do
           call :a_2, :endpoint1, parameters: { :call =>  Proc.new{ sleep 0.5 } }
           call :a_2_2, :endpoint1
         end
@@ -80,7 +80,8 @@ class TestParallel < Test::Unit::TestCase
     @wf.start.join
     wf_assert('CALL a_1')
     wf_assert('CALL a_2')
-    wf_sassert('NLNa_2Ca_3Da_3|finished|')
+    wf_assert('CALL a_2_2',false)
+    wf_sassert('Sa_2NLNa_2Da_2Ca_3Da_3|finished|')
   end
   def test_parallel_nested
     # |- :a_1
@@ -91,19 +92,19 @@ class TestParallel < Test::Unit::TestCase
     # |-|- :a_2_3
     # |- => :a_3
     @wf.description do
-      parallel :wait do
-        parallel_branch do call :a_1, :endpoint1 end
-        parallel_branch do
-          parallel :wait do
-            parallel_branch do
-              parallel :wait do
-                parallel_branch do call :a_2_1_1, :endpoint1, parameters: { :call => Proc.new {sleep 0.2} } end
-                parallel_branch do call :a_2_1_2, :endpoint1, parameters: { :call => Proc.new {sleep 0.4} } end
+      parallel :p1 do
+        parallel_branch :p1_1 do call :a_1, :endpoint1 end
+        parallel_branch :p1_2 do
+          parallel :p2 do
+            parallel_branch :p2_1 do
+              parallel :p3 do
+                parallel_branch :p3_1 do call :a_2_1_1, :endpoint1, parameters: { :call => Proc.new {sleep 0.2} } end
+                parallel_branch :p3_2 do call :a_2_1_2, :endpoint1, parameters: { :call => Proc.new {sleep 0.4} } end
               end
               call :a_2_1_3, :endpoint1, parameters: { :call => Proc.new {sleep 0.8} }
             end
-            parallel_branch do call :a_2_2, :endpoint1, parameters: { :call => Proc.new {sleep 0.8} } end
-            parallel_branch do call :a_2_3, :endpoint1, parameters: { :call => Proc.new {sleep 1.0} } end
+            parallel_branch :p2_2 do call :a_2_2, :endpoint1, parameters: { :call => Proc.new {sleep 0.8} } end
+            parallel_branch :p2_3 do call :a_2_3, :endpoint1, parameters: { :call => Proc.new {sleep 1.0} } end
           end
         end
       end

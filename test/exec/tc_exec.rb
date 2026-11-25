@@ -11,9 +11,7 @@ class TestChoose < Test::Unit::TestCase
       manipulate :a_1, <<-end
         data.a = 1 
       end
-      call :a_2, :endpoint1 do
-        data.b = 1
-      end
+      call :a_2, :endpoint1, finalize: 'data.b = 1'
     end
     @wf.start.join
     wf_assert("MANIPULATE a_1")
