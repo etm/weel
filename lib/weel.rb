@@ -325,7 +325,7 @@ class WEEL
 
   class ConnectionWrapperBase # {{{
     def self::loop_guard(arguments,lid,count); false; end
-    def self::inform_state_change(arguments,newstate,data); end
+    def self::inform_state_change(arguments,newstate); end
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_connectionwrapper_error(arguments,err); end
     def self::inform_position_change(arguments,ipc={}); end
@@ -1103,7 +1103,7 @@ class WEEL
     def __weel_finalize #{{{
       __weel_recursive_join(@__weel_main)
       @__weel_state = :stopped
-      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state, @__weel_data
+      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
     end #}}}
 
     def __weel_state=(newState)# {{{
@@ -1112,7 +1112,7 @@ class WEEL
       @__weel_positions = Array.new if newState == :running
       @__weel_state = newState
 
-      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state, @__weel_data
+      @__weel_connectionwrapper::inform_state_change @__weel_connectionwrapper_args, @__weel_state
 
       if newState == :stopping || newState == :finishing
         __weel_recursive_continue(@__weel_main)
@@ -1156,7 +1156,7 @@ public
     @dslr.__weel_state
   end #  }}}
   def state_signal # {{{
-    connectionwrapper::inform_state_change connectionwrapper_args, state, data
+    connectionwrapper::inform_state_change connectionwrapper_args, state
     state
   end # }}}
   def abandon # {{{
