@@ -329,6 +329,7 @@ class WEEL
     def self::inform_syntax_error(arguments,err,code); end
     def self::inform_connectionwrapper_error(arguments,err); end
     def self::inform_position_change(arguments,ipc={}); end
+    def self::inform_activity_minimal(arguments,what,uuid,label,position); end
 
     def initialize(arguments,position=nil,continue=nil); end
 
@@ -357,11 +358,13 @@ class WEEL
     def test_condition(eid,dataelements,endpoints,local,additional,code,args={},props={}); ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code); end
     def manipulate(readonly,lock,dataelements,endpoints,status,local,additional,code,where,result=nil,options=nil)
       lock.synchronize do
-        if readonly
-          ReadStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+        struct = if readonly
+          ReadStructure.new(dataelements,endpoints,local,additional)
         else
-          ManipulateStructure.new(dataelements,endpoints,local,additional).instance_eval(code,where,1)
+          ManipulateStructure.new(dataelements,endpoints,status,local,additional)
         end
+        struct.instance_eval(code,where,1)
+        struct
       end
     end
 
