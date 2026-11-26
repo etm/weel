@@ -456,11 +456,7 @@ class WEEL
       self.description = block
     end
   end #  }}}
-  def self::flow(flow_data=nil) # {{{
-    define_method :initialize_flow_data do
-      self.flow_data = flow_data
-    end if flow_data
-  end #}}}
+  def self::flow; end # only syntax: control flow do ... end
 
   class DSLRealization # {{{
     def  initialize #{{{
@@ -854,7 +850,6 @@ class WEEL
       @__weel_search_positions.each do |k,ele| # some may still be in active search but lets unmark them for good measure
         ipc[:unmark] ||= []
         ipc[:unmark] << ele
-        true
       end
       ipc[:unmark].uniq! if ipc[:unmark]
 
