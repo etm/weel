@@ -1173,7 +1173,7 @@ public
   def description=(code) # {{{
     (class << self; self; end).class_eval do
       remove_method :__weel_control_flow if method_defined? :__weel_control_flow
-      define_method :__weel_control_flow do |state,final_state=:finished|
+      define_method :__weel_control_flow do |state|
         @dslr.__weel_positions.clear
         @dslr.__weel_state = state
         begin
