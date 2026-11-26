@@ -825,16 +825,22 @@ class WEEL
     def __weel_progress(position, uuid, skip=false) #{{{
       ipc = {}
       branch = Thread.current
-      if Thread.current[:branch_parent] && Thread.current[:branch_parent][:branch_position]
-        @__weel_positions.delete Thread.current[:branch_parent][:branch_position]
-        ipc[:unmark] ||= []
-        ipc[:unmark] << Thread.current[:branch_parent][:branch_position] rescue nil
-        Thread.current[:branch_parent][:branch_position] = nil
+      if (parent = Thread.current[:branch_parent])
+        pbp = parent[:mutex].synchronize do
+          tmp = parent[:branch_position]
+          parent[:branch_position] = nil
+          tmp
+        end
+        if pbp
+          @__weel_positions.delete pbp
+          ipc[:unmark] ||= []
+          ipc[:unmark] << pbp
+        end
       end
       if Thread.current[:branch_position]
         @__weel_positions.delete Thread.current[:branch_position]
         ipc[:unmark] ||= []
-        ipc[:unmark] << Thread.current[:branch_position] rescue nil
+        ipc[:unmark] << Thread.current[:branch_position]
       end
       wp = if branch[:branch_search_now] == true
         branch[:branch_search_now] = false
@@ -1237,7 +1243,7 @@ public
     @dslr.__weel_endpoints
   end # }}}
   def endpoint(new_endpoints) # {{{
-    unless new_endpoints.nil? || !new_endpoints.is_a?(Hash) || !new_endpoints.length == 1
+    unless new_endpoints.nil? || !new_endpoints.is_a?(Hash) || new_endpoints.length != 1
       new_endpoints.each{ |k,v| @dslr.__weel_endpoints[k] = v }
     end
     nil
