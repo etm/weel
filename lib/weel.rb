@@ -29,7 +29,6 @@ class WEEL
     initialize_endpoints if methods.include?(:initialize_endpoints)
     initialize_connectionwrapper if methods.include?(:initialize_connectionwrapper)
     initialize_control if methods.include?(:initialize_control)
-    initialize_flow_data if methods.include?(:initialize_flow_data)
   end # }}}
 
   module Signal # {{{
