@@ -235,8 +235,6 @@ class WEEL
     attr_reader :additional
   end # }}}
   class ManipulateHash # {{{
-    attr_reader :__weel_touched, :__weel_changed
-
     include WEEL::HashExt
 
     def initialize(values,touched,changed)
@@ -295,23 +293,6 @@ class WEEL
 
     def initialize(values)
       @__weel_values = values
-    end
-  end # }}}
-  class ReadOnlyHash # {{{
-    include WEEL::HashExt
-
-    def initialize(values)
-      @__weel_values = values.transform_values do |v|
-        if Object.const_defined?(:XML) && XML.const_defined?(:Smart) && v.is_a?(XML::Smart::Dom)
-          v.root.to_doc
-        else
-          begin
-            v.deep_dup
-          rescue
-            v.to_s rescue nil
-          end
-        end
-      end
     end
   end # }}}
 
@@ -1029,16 +1010,9 @@ class WEEL
           end
         end
       end
-      Thread.current[:continue].clear if Thread.current[:continue] && Thread.current[:continue].is_a?(Continue)
+      Thread.current[:continue].clear if Thread.current[:continue]
     end # }}}
 
-    def __weel_recursive_print(thread,indent='')# {{{
-      if thread[:branches]
-        thread[:branches].each do |b|
-          __weel_recursive_print(b,indent+'  ')
-        end
-      end
-    end  # }}}
     def __weel_recursive_continue(thread)# {{{
       return unless thread
       if thread[:nudge]
@@ -1052,7 +1026,7 @@ class WEEL
       if thread.alive? && thread[:branch_event]
         ### we dont mutex here anymore, although we did; we are not sure why we originally did it. Branch_event will always exist.
         ### thread[:mutex].synchronize do
-          thread[:branch_event].continue unless thread[:branch_event].nil?
+          thread[:branch_event].continue
         ### end
       end
       if thread[:branches]
@@ -1157,13 +1131,6 @@ public
   def state # {{{
     @dslr.__weel_state
   end #  }}}
-  def state_signal # {{{
-    connectionwrapper::inform_state_change connectionwrapper_args, state
-    state
-  end # }}}
-  def abandon # {{{
-    @dslr.__weel_state = :abandoned
-  end # }}}
 
   # get/set workflow description
   def description(&blk)
