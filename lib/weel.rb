@@ -664,26 +664,30 @@ class WEEL
       return if searchmode
       return if self.__weel_state == :stopping || self.__weel_state == :finishing || self.__weel_state == :stopped || Thread.current[:nolongernecessary]
 
+      unless Thread.current[:branch_parent]
+        self.__weel_state = :stopping
+        @__weel_connectionwrapper::inform_syntax_error(@__weel_connectionwrapper_args,Exception.new("wait_for_signal (#{position}) is only possible inside a parallel_branch"),nil)
+        return
+      end
+
       # gather traces in threads to point to join
-      if Thread.current[:branch_parent] && Thread.current[:branch_traces_id]
+      if Thread.current[:branch_traces_id]
         Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] ||= []
         Thread.current[:branch_parent][:branch_traces][Thread.current[:branch_traces_id]] << position
       end
 
       uuid = SecureRandom.uuid
-      wp = __weel_progress position, SecureRandom.uuid
+      wp = __weel_progress position, uuid
 
       @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args,'calling',uuid,label,position
 
       Thread.current[:branch_parent][:nudge].pop
       if self.__weel_state != :stopping
+        @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
         if Thread.current[:nolongernecessary]
-          @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
           Thread.current[:branch_position] = nil
           @__weel_positions.delete wp
           @__weel_connectionwrapper::inform_position_change @__weel_connectionwrapper_args, :unmark => [wp]
-        else
-          @__weel_connectionwrapper::inform_activity_minimal @__weel_connectionwrapper_args, 'done', uuid, label, position
         end
       end
       __weel_activity_ensure
@@ -886,11 +890,6 @@ class WEEL
               connectionwrapper.activity_manipulate_handle(parameters)
               connectionwrapper.inform_activity_manipulate
               struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,finalize,'Activity ' + position.to_s)
-              if signal
-                1.upto(Thread.current[:branch_parent][:nudge].num_waiting) do
-                  Thread.current[:branch_parent][:nudge].push(nil)
-                end
-              end
               connectionwrapper.inform_manipulate_change(
                 ((struct && struct.changed_status) ? @__weel_status : nil),
                 ((struct && struct.changed_data.any?) ? struct.changed_data.uniq : nil),
@@ -956,7 +955,7 @@ class WEEL
                       struct = connectionwrapper.manipulate(false,@__weel_lock,@__weel_data,@__weel_endpoints,@__weel_status,Thread.current[:local],connectionwrapper.additional,code,'Activity ' + position.to_s + ' ' + cmess,activity_result_value,activity_result_options)
                       Signal::Proceed
                     end
-                    if signal
+                    if signal && Thread.current[:branch_parent] # outside a parallel_branch nobody can wait for the signal
                       1.upto(Thread.current[:branch_parent][:nudge].num_waiting) do
                         Thread.current[:branch_parent][:nudge].push(nil)
                       end
